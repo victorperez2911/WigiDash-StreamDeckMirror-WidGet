@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d3748;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a202c;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="300" fill="url(#grad1)"/>
+
+  <!-- Stream Deck Box -->
+  <g filter="url(#shadow)">
+    <rect x="30" y="80" width="180" height="140" rx="10" fill="url(#boxGrad)" stroke="#4a5568" stroke-width="2"/>
+    <text x="120" y="120" text-anchor="middle" fill="#a0aec0" font-family="Segoe UI, Arial" font-size="12">ELGATO</text>
+    <text x="120" y="145" text-anchor="middle" fill="white" font-family="Segoe UI, Arial" font-size="14" font-weight="bold">Stream Deck</text>
+    <text x="120" y="165" text-anchor="middle" fill="#63b3ed" font-family="Segoe UI, Arial" font-size="12">Virtual Device</text>
+
+    <!-- Mini grid representing buttons -->
+    <g transform="translate(70, 175)">
+      <rect x="0" y="0" width="20" height="20" rx="3" fill="#4299e1"/>
+      <rect x="25" y="0" width="20" height="20" rx="3" fill="#48bb78"/>
+      <rect x="50" y="0" width="20" height="20" rx="3" fill="#ed8936"/>
+      <rect x="75" y="0" width="20" height="20" rx="3" fill="#9f7aea"/>
+    </g>
+  </g>
+
+  <!-- Arrow 1 -->
+  <g>
+    <line x1="220" y1="150" x2="280" y2="150" stroke="#4299e1" stroke-width="3" stroke-linecap="round"/>
+    <polygon points="290,150 275,142 275,158" fill="#4299e1"/>
+    <text x="255" y="135" text-anchor="middle" fill="#a0aec0" font-family="Segoe UI, Arial" font-size="10">Captura</text>
+  </g>
+
+  <!-- Widget Box -->
+  <g filter="url(#shadow)">
+    <rect x="300" y="80" width="180" height="140" rx="10" fill="url(#boxGrad)" stroke="#48bb78" stroke-width="2"/>
+    <text x="390" y="115" text-anchor="middle" fill="#48bb78" font-family="Segoe UI, Arial" font-size="11">ESTE WIDGET</text>
+    <text x="390" y="140" text-anchor="middle" fill="white" font-family="Segoe UI, Arial" font-size="14" font-weight="bold">Stream Deck</text>
+    <text x="390" y="160" text-anchor="middle" fill="white" font-family="Segoe UI, Arial" font-size="14" font-weight="bold">Mirror</text>
+
+    <!-- Sync icon -->
+    <g transform="translate(365, 175)">
+      <circle cx="25" cy="15" r="12" fill="none" stroke="#48bb78" stroke-width="2"/>
+      <path d="M25 8 L25 3 L30 8" fill="none" stroke="#48bb78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M25 22 L25 27 L20 22" fill="none" stroke="#48bb78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- Arrow 2 -->
+  <g>
+    <line x1="490" y1="150" x2="550" y2="150" stroke="#4299e1" stroke-width="3" stroke-linecap="round"/>
+    <polygon points="560,150 545,142 545,158" fill="#4299e1"/>
+    <text x="525" y="135" text-anchor="middle" fill="#a0aec0" font-family="Segoe UI, Arial" font-size="10">Renderiza</text>
+  </g>
+
+  <!-- WigiDash Box -->
+  <g filter="url(#shadow)">
+    <rect x="570" y="80" width="200" height="140" rx="10" fill="url(#boxGrad)" stroke="#ed8936" stroke-width="2"/>
+    <text x="670" y="115" text-anchor="middle" fill="#ed8936" font-family="Segoe UI, Arial" font-size="11">HARDWARE</text>
+    <text x="670" y="145" text-anchor="middle" fill="white" font-family="Segoe UI, Arial" font-size="16" font-weight="bold">WigiDash</text>
+    <text x="670" y="165" text-anchor="middle" fill="#a0aec0" font-family="Segoe UI, Arial" font-size="12">Display Touchscreen</text>
+
+    <!-- Screen representation -->
+    <rect x="620" y="175" width="100" height="35" rx="3" fill="#2d3748" stroke="#4a5568"/>
+    <g transform="translate(625, 180)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="#4299e1" opacity="0.8"/>
+      <rect x="15" y="0" width="12" height="12" rx="2" fill="#48bb78" opacity="0.8"/>
+      <rect x="30" y="0" width="12" height="12" rx="2" fill="#ed8936" opacity="0.8"/>
+      <rect x="45" y="0" width="12" height="12" rx="2" fill="#9f7aea" opacity="0.8"/>
+      <rect x="60" y="0" width="12" height="12" rx="2" fill="#f56565" opacity="0.8"/>
+      <rect x="75" y="0" width="12" height="12" rx="2" fill="#38b2ac" opacity="0.8"/>
+    </g>
+    <g transform="translate(625, 195)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="#f56565" opacity="0.8"/>
+      <rect x="15" y="0" width="12" height="12" rx="2" fill="#38b2ac" opacity="0.8"/>
+      <rect x="30" y="0" width="12" height="12" rx="2" fill="#ecc94b" opacity="0.8"/>
+      <rect x="45" y="0" width="12" height="12" rx="2" fill="#667eea" opacity="0.8"/>
+      <rect x="60" y="0" width="12" height="12" rx="2" fill="#fc8181" opacity="0.8"/>
+      <rect x="75" y="0" width="12" height="12" rx="2" fill="#4fd1c5" opacity="0.8"/>
+    </g>
+  </g>
+
+  <!-- Return arrow (clicks) -->
+  <g>
+    <path d="M 670 230 Q 670 260 390 260 Q 120 260 120 230" fill="none" stroke="#9f7aea" stroke-width="2" stroke-dasharray="5,5"/>
+    <polygon points="120,220 113,235 127,235" fill="#9f7aea"/>
+    <text x="390" y="280" text-anchor="middle" fill="#9f7aea" font-family="Segoe UI, Arial" font-size="11">Toques enviados de volta como cliques</text>
+  </g>
+
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" fill="white" font-family="Segoe UI, Arial" font-size="20" font-weight="bold">Fluxo de Funcionamento</text>
+  <text x="400" y="60" text-anchor="middle" fill="#a0aec0" font-family="Segoe UI, Arial" font-size="12">Espelhamento bidirecional em tempo real</text>
+</svg>
