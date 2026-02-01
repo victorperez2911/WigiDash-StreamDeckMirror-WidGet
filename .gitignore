@@ -416,3 +416,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Claude Code local settings
+.claude/
+
+# Windows special files
+nul

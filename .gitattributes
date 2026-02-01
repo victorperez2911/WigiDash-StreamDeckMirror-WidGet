@@ -1,0 +1,20 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force Windows line endings for these files
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.ps1 text eol=crlf
+*.json text eol=crlf
+*.md text eol=crlf
+
+# Keep these as LF (Unix-style)
+*.sh text eol=lf
+
+# Binary files (don't touch)
+*.png binary
+*.ico binary
+*.dll binary
+*.exe binary
