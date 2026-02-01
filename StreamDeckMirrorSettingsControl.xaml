@@ -1,0 +1,194 @@
+<UserControl x:Class="WigiDash.StreamDeckMirrorWidget.StreamDeckMirrorSettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="400"
+             Background="#2D2D2D" Foreground="White">
+
+    <UserControl.Resources>
+        <!-- Override system colors for dark theme ComboBox -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#3D3D3D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#4A6FA5"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#4A6FA5"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#3D3D3D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#5D5D5D"/>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#3D3D3D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#5D5D5D"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#4A6FA5"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="Slider">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#4D4D4D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#6D6D6D"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="15">
+            <!-- Header -->
+            <TextBlock Text="Stream Deck Mirror" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+
+            <!-- Device Selection Section -->
+            <Border Background="#3D3D3D" CornerRadius="5" Padding="10" Margin="0,0,0,15">
+                <StackPanel>
+                    <TextBlock Text="VIRTUAL DEVICE" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,10"/>
+
+                    <!-- Status Message -->
+                    <TextBlock x:Name="StatusText"
+                               Text="Procurando dispositivos..."
+                               Foreground="#AAA"
+                               Margin="0,0,0,10"
+                               TextWrapping="Wrap"/>
+
+                    <!-- Device Dropdown -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox x:Name="DeviceComboBox"
+                                  Grid.Column="0"
+                                  Height="28"
+                                  SelectionChanged="DeviceComboBox_SelectionChanged"/>
+
+                        <Button x:Name="RefreshButton"
+                                Grid.Column="1"
+                                Content="Atualizar"
+                                Margin="10,0,0,0"
+                                Click="RefreshButton_Click"/>
+                    </Grid>
+
+                    <!-- Current State -->
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <Ellipse x:Name="StateIndicator" Width="10" Height="10" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="StateText" Text="Desconectado" Foreground="#AAA"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Refresh Rate Section -->
+            <Border Background="#3D3D3D" CornerRadius="5" Padding="10" Margin="0,0,0,15">
+                <StackPanel>
+                    <TextBlock Text="TAXA DE ATUALIZAÇÃO" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="80"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Slider x:Name="RefreshSlider"
+                                Grid.Column="0"
+                                Minimum="50" Maximum="1000"
+                                Value="100"
+                                TickFrequency="50"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="RefreshSlider_ValueChanged"/>
+
+                        <TextBlock x:Name="RefreshText"
+                                   Grid.Column="1"
+                                   Text="100ms (10 FPS)"
+                                   HorizontalAlignment="Right"
+                                   Foreground="#AAA"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <TextBlock Text="50ms" Foreground="#666" FontSize="10"/>
+                        <TextBlock Text="1000ms" Foreground="#666" FontSize="10" HorizontalAlignment="Right" Margin="200,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Window Visibility Section -->
+            <Border Background="#3D3D3D" CornerRadius="5" Padding="10" Margin="0,0,0,15">
+                <StackPanel>
+                    <TextBlock Text="VISIBILIDADE DA JANELA" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,10"/>
+
+                    <CheckBox x:Name="HideWindowCheckBox"
+                              Content="Ocultar janela original no monitor"
+                              Margin="0,0,0,10"
+                              Checked="HideWindowCheckBox_Changed"
+                              Unchecked="HideWindowCheckBox_Changed"/>
+
+                    <CheckBox x:Name="ShowFooterCheckBox"
+                              Content="Exibir barra de rodapé (toggle rápido)"
+                              Margin="0,0,0,10"
+                              Checked="ShowFooterCheckBox_Changed"
+                              Unchecked="ShowFooterCheckBox_Changed"/>
+
+                    <!-- Long Press Duration (only visible if footer is enabled) -->
+                    <StackPanel x:Name="LongPressDurationPanel" Margin="20,0,0,0">
+                        <TextBlock Text="Duração do long press:" Foreground="#AAA" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Slider x:Name="LongPressSlider"
+                                    Grid.Column="0"
+                                    Minimum="400" Maximum="1000"
+                                    Value="600"
+                                    TickFrequency="50"
+                                    IsSnapToTickEnabled="True"
+                                    ValueChanged="LongPressSlider_ValueChanged"/>
+
+                            <TextBlock x:Name="LongPressText"
+                                       Grid.Column="1"
+                                       Text="600ms"
+                                       HorizontalAlignment="Right"
+                                       Foreground="#AAA"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Info Section -->
+            <Border Background="#353535" CornerRadius="5" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="INFORMAÇÕES" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,10"/>
+
+                    <TextBlock TextWrapping="Wrap" Foreground="#AAA" FontSize="11">
+                        <Run Text="• O aplicativo Elgato Stream Deck deve estar aberto para detectar dispositivos."/>
+                        <LineBreak/>
+                        <Run Text="• A barra de rodapé permite alternar a visibilidade da janela original com um toque longo."/>
+                        <LineBreak/>
+                        <Run Text="• Cliques no widget são encaminhados para o Stream Deck."/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

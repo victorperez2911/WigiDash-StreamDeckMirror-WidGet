@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>WigiDash.StreamDeckMirrorWidget</RootNamespace>
+    <AssemblyName>B7E4D1A2-5C8F-4E9B-A3D6-1F2E3B4C5D6E</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="victorperez2911.WigiDashWidgetFramework" Version="1.1.0" />
+  </ItemGroup>
+
+  <!-- Resource images will be added manually when created -->
+  <!-- The code has fallback rendering when images are not found -->
+
+  <ItemGroup>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+</Project>
