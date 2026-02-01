@@ -39,12 +39,17 @@ namespace WigiDash.StreamDeckMirrorWidget
         private bool _hideOriginalWindow = false;
         private bool _showFooterBar = true;
         private int _longPressDurationMs = 600;
+        private bool _doubleClickLetterboxEnabled = true;
         private Color _backgroundColor = Color.Black;
 
         // Retry tracking
         private int _retryCount = 0;
         private const int MAX_RETRY_COUNT = 3;
         private DateTime _lastRetryTime = DateTime.MinValue;
+
+        // Double-click detection for letterbox toggle
+        private DateTime _lastLetterboxClickTime = DateTime.MinValue;
+        private const int DOUBLE_CLICK_MS = 400;
 
         #endregion
 
@@ -202,6 +207,11 @@ namespace WigiDash.StreamDeckMirrorWidget
                 _longPressDurationMs = Math.Max(400, Math.Min(1000, duration));
             }
 
+            if (manager.LoadSetting(this, "doubleClickLetterbox", out string dcl))
+            {
+                _doubleClickLetterboxEnabled = dcl != "false"; // default true
+            }
+
             if (manager.LoadSetting(this, "backgroundColor", out string bgColor))
             {
                 try
@@ -232,6 +242,7 @@ namespace WigiDash.StreamDeckMirrorWidget
             manager.StoreSetting(this, "hideOriginalWindow", _hideOriginalWindow ? "true" : "false");
             manager.StoreSetting(this, "showFooterBar", _showFooterBar ? "true" : "false");
             manager.StoreSetting(this, "longPressDuration", _longPressDurationMs.ToString());
+            manager.StoreSetting(this, "doubleClickLetterbox", _doubleClickLetterboxEnabled ? "true" : "false");
             manager.StoreSetting(this, "backgroundColor", ColorTranslator.ToHtml(_backgroundColor));
         }
 
@@ -460,7 +471,7 @@ namespace WigiDash.StreamDeckMirrorWidget
                 return;
             }
 
-            // Only forward clicks when connected
+            // Only process further when connected and we have aspect info
             if (_currentState != WidgetState.Connected || _aspectInfo == null)
                 return;
 
@@ -470,8 +481,50 @@ namespace WigiDash.StreamDeckMirrorWidget
 
             if (sourceCoords.HasValue)
             {
+                // Click is inside content area - forward to Stream Deck
                 bool rightClick = clickType == ClickType.Long;
                 _windowCapture.SendClick(sourceCoords.Value.x, sourceCoords.Value.y, rightClick);
+            }
+            else
+            {
+                // Click is in letterbox area (black bars) - check for double-click to toggle
+                HandleLetterboxClick();
+            }
+        }
+
+        private void HandleLetterboxClick()
+        {
+            // Check if double-click letterbox toggle is enabled
+            if (!_doubleClickLetterboxEnabled)
+                return;
+
+            var now = DateTime.Now;
+            var elapsed = (now - _lastLetterboxClickTime).TotalMilliseconds;
+
+            if (elapsed < DOUBLE_CLICK_MS)
+            {
+                // Double-click detected - toggle visibility
+                _windowCapture.ToggleVisibility();
+                _hideOriginalWindow = _windowCapture.IsWindowHidden;
+                SaveSettings();
+
+                // Force immediate re-render
+                if (_currentState == WidgetState.Connected)
+                {
+                    CaptureAndRender();
+                }
+                else
+                {
+                    RenderCurrentState();
+                }
+
+                // Reset timer to prevent triple-click triggering again
+                _lastLetterboxClickTime = DateTime.MinValue;
+            }
+            else
+            {
+                // First click - record time
+                _lastLetterboxClickTime = now;
             }
         }
 
@@ -570,6 +623,13 @@ namespace WigiDash.StreamDeckMirrorWidget
         public void SetLongPressDuration(int ms)
         {
             _longPressDurationMs = Math.Max(400, Math.Min(1000, ms));
+            SaveSettings();
+        }
+
+        public bool GetDoubleClickLetterboxEnabled() => _doubleClickLetterboxEnabled;
+        public void SetDoubleClickLetterboxEnabled(bool enabled)
+        {
+            _doubleClickLetterboxEnabled = enabled;
             SaveSettings();
         }
 

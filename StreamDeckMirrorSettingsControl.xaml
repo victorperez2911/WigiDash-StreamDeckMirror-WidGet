@@ -80,7 +80,24 @@
                         <ComboBox x:Name="DeviceComboBox"
                                   Grid.Column="0"
                                   Height="28"
-                                  SelectionChanged="DeviceComboBox_SelectionChanged"/>
+                                  Foreground="White"
+                                  TextElement.Foreground="White"
+                                  SelectionChanged="DeviceComboBox_SelectionChanged">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#3D3D3D"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter Property="Background" Value="#5D5D5D"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#4A6FA5"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
 
                         <Button x:Name="RefreshButton"
                                 Grid.Column="1"
@@ -147,6 +164,12 @@
                               Checked="ShowFooterCheckBox_Changed"
                               Unchecked="ShowFooterCheckBox_Changed"/>
 
+                    <CheckBox x:Name="DoubleClickLetterboxCheckBox"
+                              Content="Duplo-clique nas bordas para toggle"
+                              Margin="0,0,0,10"
+                              Checked="DoubleClickLetterboxCheckBox_Changed"
+                              Unchecked="DoubleClickLetterboxCheckBox_Changed"/>
+
                     <!-- Long Press Duration (only visible if footer is enabled) -->
                     <StackPanel x:Name="LongPressDurationPanel" Margin="20,0,0,0">
                         <TextBlock Text="Duração do long press:" Foreground="#AAA" Margin="0,0,0,5"/>
@@ -182,7 +205,7 @@
                     <TextBlock TextWrapping="Wrap" Foreground="#AAA" FontSize="11">
                         <Run Text="• O aplicativo Elgato Stream Deck deve estar aberto para detectar dispositivos."/>
                         <LineBreak/>
-                        <Run Text="• A barra de rodapé permite alternar a visibilidade da janela original com um toque longo."/>
+                        <Run Text="• Toque no rodapé ou duplo-clique nas bordas pretas para alternar visibilidade."/>
                         <LineBreak/>
                         <Run Text="• Cliques no widget são encaminhados para o Stream Deck."/>
                     </TextBlock>

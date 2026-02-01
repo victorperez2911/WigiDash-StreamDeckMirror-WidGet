@@ -17,6 +17,7 @@ namespace WigiDash.StreamDeckMirrorWidget
         private readonly StreamDeckMirrorWidgetInstance _instance;
         private List<StreamDeckWindowInfo> _currentWindows;
         private bool _isInitializing = true;
+        private DispatcherTimer _stateRefreshTimer;
 
         public StreamDeckMirrorSettingsControl(StreamDeckMirrorWidgetInstance instance)
         {
@@ -32,6 +33,23 @@ namespace WigiDash.StreamDeckMirrorWidget
                 RefreshDeviceListAsync();
                 _isInitializing = false;
             }));
+
+            // Set up timer to refresh state when double-click letterbox is enabled
+            // This allows the UI to reflect visibility changes made via double-click on device
+            _stateRefreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            _stateRefreshTimer.Tick += StateRefreshTimer_Tick;
+
+            // Start timer if double-click letterbox is enabled
+            if (_instance.GetDoubleClickLetterboxEnabled())
+            {
+                _stateRefreshTimer.Start();
+            }
+
+            // Handle unloading to stop timer
+            Unloaded += (s, e) => _stateRefreshTimer?.Stop();
         }
 
         private void RefreshDeviceListAsync()
@@ -55,8 +73,16 @@ namespace WigiDash.StreamDeckMirrorWidget
             RefreshSlider.Value = _instance.GetRefreshInterval();
             UpdateRefreshText();
 
-            // Hide window
-            HideWindowCheckBox.IsChecked = _instance.GetHideOriginalWindow();
+            // Double-click letterbox toggle (load first as it affects HideWindowCheckBox)
+            bool doubleClickEnabled = _instance.GetDoubleClickLetterboxEnabled();
+            DoubleClickLetterboxCheckBox.IsChecked = doubleClickEnabled;
+
+            // Hide window - disabled when double-click letterbox is enabled
+            // When disabled, it reflects the actual window visibility state
+            HideWindowCheckBox.IsEnabled = !doubleClickEnabled;
+            HideWindowCheckBox.IsChecked = doubleClickEnabled
+                ? _instance.IsWindowHidden()
+                : _instance.GetHideOriginalWindow();
 
             // Show footer
             ShowFooterCheckBox.IsChecked = _instance.GetShowFooterBar();
@@ -69,6 +95,25 @@ namespace WigiDash.StreamDeckMirrorWidget
             UpdateLongPressText();
 
             // Update state indicator
+            UpdateStateIndicator();
+        }
+
+        private void StateRefreshTimer_Tick(object sender, EventArgs e)
+        {
+            // Update the HideWindow checkbox to reflect actual window visibility
+            // This syncs the UI when visibility is changed via double-click on device
+            if (_instance.GetDoubleClickLetterboxEnabled())
+            {
+                bool isHidden = _instance.IsWindowHidden();
+                if (HideWindowCheckBox.IsChecked != isHidden)
+                {
+                    _isInitializing = true;
+                    HideWindowCheckBox.IsChecked = isHidden;
+                    _isInitializing = false;
+                }
+            }
+
+            // Always refresh state indicator
             UpdateStateIndicator();
         }
 
@@ -125,7 +170,11 @@ namespace WigiDash.StreamDeckMirrorWidget
 
                     var item = new ComboBoxItem
                     {
-                        Content = displayText,
+                        Content = new System.Windows.Controls.TextBlock
+                        {
+                            Text = displayText,
+                            Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255))
+                        },
                         Tag = new DeviceComboItem
                         {
                             WindowInfo = window,
@@ -263,6 +312,34 @@ namespace WigiDash.StreamDeckMirrorWidget
 
             if (_isInitializing) return;
             _instance.SetLongPressDuration((int)LongPressSlider.Value);
+        }
+
+        private void DoubleClickLetterboxCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+
+            bool enabled = DoubleClickLetterboxCheckBox.IsChecked == true;
+
+            // Enable/disable HideWindow checkbox based on this setting
+            HideWindowCheckBox.IsEnabled = !enabled;
+
+            // When enabled, sync checkbox with actual visibility state
+            if (enabled)
+            {
+                _isInitializing = true;
+                HideWindowCheckBox.IsChecked = _instance.IsWindowHidden();
+                _isInitializing = false;
+
+                // Start refresh timer to keep UI in sync
+                _stateRefreshTimer?.Start();
+            }
+            else
+            {
+                // Stop refresh timer when not needed
+                _stateRefreshTimer?.Stop();
+            }
+
+            _instance.SetDoubleClickLetterboxEnabled(enabled);
         }
 
         #endregion
