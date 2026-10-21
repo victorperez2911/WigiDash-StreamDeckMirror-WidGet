@@ -20,6 +20,7 @@ namespace WigiDash.StreamDeckMirrorWidget
         private readonly string _resourcePath;
 
         private WindowCapture _windowCapture;
+        private readonly CaptureDiagnostics _diagnostics;
         private DeviceIdentifier _savedDevice;
         private WidgetState _currentState = WidgetState.NotConfigured;
 
@@ -75,6 +76,7 @@ namespace WigiDash.StreamDeckMirrorWidget
             WidgetSize = widgetSize;
             Guid = instanceGuid;
             _resourcePath = resourcePath;
+            _diagnostics = new CaptureDiagnostics(instanceGuid, resourcePath);
 
             _windowCapture = new WindowCapture();
 
@@ -364,7 +366,10 @@ namespace WigiDash.StreamDeckMirrorWidget
             // Calculate aspect ratio if needed
             if (_aspectInfo == null ||
                 _aspectInfo.SourceWidth != captured.Width ||
-                _aspectInfo.SourceHeight != captured.Height)
+                _aspectInfo.SourceHeight != captured.Height ||
+                _aspectInfo.ContentAreaWidth != size.Width ||
+                _aspectInfo.ContentAreaHeight != (_showFooterBar
+                    ? AspectRatioHelper.GetFooterY(size.Height) : size.Height))
             {
                 _aspectInfo = AspectRatioHelper.Calculate(
                     captured.Width, captured.Height,
@@ -394,6 +399,8 @@ namespace WigiDash.StreamDeckMirrorWidget
                 }
             }
 
+            _diagnostics.Record(_windowCapture.TargetHwnd, captured, output, _aspectInfo,
+                _windowCapture.IsWindowHidden, Log);
             captured.Dispose();
 
             // Update current bitmap
@@ -472,18 +479,27 @@ namespace WigiDash.StreamDeckMirrorWidget
             }
 
             // Only process further when connected and we have aspect info
-            if (_currentState != WidgetState.Connected || _aspectInfo == null)
+            var aspect = _aspectInfo;
+            if (_currentState != WidgetState.Connected || aspect == null)
                 return;
 
             // Map click to source coordinates
             var sourceCoords = AspectRatioHelper.MapClickToSource(
-                x, y, _aspectInfo, _showFooterBar, size.Height);
+                x, y, aspect, _showFooterBar, size.Height);
 
             if (sourceCoords.HasValue)
             {
                 // Click is inside content area - forward to Stream Deck
                 bool rightClick = clickType == ClickType.Long;
-                _windowCapture.SendClick(sourceCoords.Value.x, sourceCoords.Value.y, rightClick);
+                if (_diagnostics.Enabled)
+                {
+                    Log($"ClickTrace widget=({size.Width},{size.Height}) raw=({x},{y}) " +
+                        $"source=({sourceCoords.Value.x},{sourceCoords.Value.y}) " +
+                        $"frame=({aspect.SourceWidth},{aspect.SourceHeight}) " +
+                        $"render=({aspect.RenderX},{aspect.RenderY},{aspect.RenderWidth},{aspect.RenderHeight}) type={clickType}");
+                }
+                _windowCapture.SendClick(sourceCoords.Value.x, sourceCoords.Value.y, rightClick,
+                    _diagnostics.Enabled ? (Action<string>)Log : null);
             }
             else
             {

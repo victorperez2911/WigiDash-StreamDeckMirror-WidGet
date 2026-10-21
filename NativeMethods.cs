@@ -38,6 +38,43 @@ namespace WigiDash.StreamDeckMirrorWidget
         [DllImport("user32.dll")]
         public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
 
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetThreadDpiAwarenessContext();
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetWindowDpiAwarenessContext(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern int GetAwarenessFromDpiAwarenessContext(IntPtr context);
+
+        [DllImport("user32.dll")]
+        public static extern bool PhysicalToLogicalPointForPerMonitorDPI(IntPtr hwnd, ref POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern bool ScreenToClient(IntPtr hwnd, ref POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern bool AreDpiAwarenessContextsEqual(IntPtr first, IntPtr second);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int index);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
         {

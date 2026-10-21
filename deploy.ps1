@@ -3,8 +3,11 @@
 
 param(
     [string]$Configuration = "Debug",
-    [switch]$RestartWigiDash = $false
+    [switch]$RestartWigiDash = $false,
+    [switch]$SkipBuild = $false
 )
+
+$ErrorActionPreference = 'Stop'
 
 # Paths
 $projectPath = "$PSScriptRoot"
@@ -18,11 +21,18 @@ Write-Host ""
 
 # Step 1: Build
 Write-Host "[1/4] Building project..." -ForegroundColor Green
-dotnet build "$projectPath\StreamDeckMirrorWidget.csproj" -c $Configuration
+if (-not $SkipBuild) {
+    dotnet build "$projectPath\StreamDeckMirrorWidget.csproj" -c $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Build failed!" -ForegroundColor Red
+        exit 1
+    }
+}
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Build failed!" -ForegroundColor Red
-    exit 1
+# Validate the prepared binary before stopping the Manager or changing its files.
+$sourcePath = "$projectPath\bin\$Configuration\net472"
+if (-not (Test-Path -LiteralPath (Join-Path $sourcePath $widgetDllName))) {
+    throw "Build output not found: $sourcePath"
 }
 
 # Step 1.5: Stop WigiDash (Critical for file access)
@@ -53,10 +63,13 @@ if (-not (Test-Path $wigiDashWidgetsPath)) {
 Write-Host "[2/4] Preparing widget folder..." -ForegroundColor Green
 if (Test-Path $targetFolder) {
     try {
-        Remove-Item $targetFolder -Recurse -Force -ErrorAction Stop
+        $backupFolder = Join-Path $env:LOCALAPPDATA ("WigiDash\StreamDeckMirror\Backups\" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+        New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null
+        Copy-Item -LiteralPath $targetFolder -Destination $backupFolder -Recurse -Force
+        Write-Host "Previous widget backed up to: $backupFolder" -ForegroundColor Cyan
     }
     catch {
-        Write-Host "Failed to clean folder. WigiDash might still be locking files." -ForegroundColor Red
+        Write-Host "Failed to back up the existing widget. Deployment stopped." -ForegroundColor Red
         if (-not $RestartWigiDash) {
             Write-Host "Try running with -RestartWigiDash" -ForegroundColor Cyan
         }
@@ -110,7 +123,7 @@ if ($RestartWigiDash) {
     $wigiDashExe = "C:\Program Files (x86)\G.SKILL\WigiDash Manager\WigiDashManager.exe"
     if (Test-Path $wigiDashExe) {
         Write-Host "Starting WigiDash..." -ForegroundColor Yellow
-        Start-Process $wigiDashExe
+        Start-Process $wigiDashExe -WindowStyle Hidden
     }
     else {
         Write-Host "WigiDashManager.exe not found at: $wigiDashExe" -ForegroundColor Yellow

@@ -422,3 +422,8 @@ FodyWeavers.xsd
 
 # Windows special files
 nul
+
+# Local capture diagnostic artifacts
+.diagnostics/
+.codex-remote-attachments/
+capture-diagnostics.enabled

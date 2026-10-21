@@ -13,6 +13,7 @@ namespace WigiDash.StreamDeckMirrorWidget
         private int _lastWidth;
         private int _lastHeight;
         private bool _isDisposed;
+        private readonly object _captureLock = new object();
 
         /// <summary>
         /// Current target window handle
@@ -22,12 +23,15 @@ namespace WigiDash.StreamDeckMirrorWidget
             get => _hwnd;
             set
             {
-                if (_hwnd != value)
+                lock (_captureLock)
                 {
-                    _hwnd = value;
-                    // Reset buffer when target changes
-                    _captureBuffer?.Dispose();
-                    _captureBuffer = null;
+                    if (_hwnd != value)
+                    {
+                        _hwnd = value;
+                        // Reset buffer when target changes
+                        _captureBuffer?.Dispose();
+                        _captureBuffer = null;
+                    }
                 }
             }
         }
@@ -44,6 +48,20 @@ namespace WigiDash.StreamDeckMirrorWidget
         /// </summary>
         /// <returns>Captured bitmap, or null if capture failed</returns>
         public Bitmap Capture()
+        {
+            lock (_captureLock)
+            {
+                if (_isDisposed) return null;
+                try
+                {
+                    using (DpiScope.PhysicalPixels())
+                        return CapturePhysicalPixels();
+                }
+                catch { return null; }
+            }
+        }
+
+        private Bitmap CapturePhysicalPixels()
         {
             if (_hwnd == IntPtr.Zero || !NativeMethods.IsWindow(_hwnd))
                 return null;
@@ -85,6 +103,11 @@ namespace WigiDash.StreamDeckMirrorWidget
                     }
                 }
 
+                // A mode transition can resize the window while PrintWindow is running.
+                if (!NativeMethods.GetWindowRect(_hwnd, out var after) ||
+                    after.Width != width || after.Height != height)
+                    return null;
+
                 // Return a clone to avoid threading issues
                 return (Bitmap)_captureBuffer.Clone();
             }
@@ -99,13 +122,16 @@ namespace WigiDash.StreamDeckMirrorWidget
         /// </summary>
         public (int width, int height) GetWindowSize()
         {
-            if (_hwnd == IntPtr.Zero || !NativeMethods.IsWindow(_hwnd))
+            using (DpiScope.PhysicalPixels())
+            {
+                if (_hwnd == IntPtr.Zero || !NativeMethods.IsWindow(_hwnd))
+                    return (0, 0);
+
+                if (NativeMethods.GetWindowRect(_hwnd, out var rect))
+                    return (rect.Width, rect.Height);
+
                 return (0, 0);
-
-            if (NativeMethods.GetWindowRect(_hwnd, out var rect))
-                return (rect.Width, rect.Height);
-
-            return (0, 0);
+            }
         }
 
         /// <summary>
@@ -182,38 +208,69 @@ namespace WigiDash.StreamDeckMirrorWidget
         /// <param name="x">X coordinate in window space</param>
         /// <param name="y">Y coordinate in window space</param>
         /// <param name="rightClick">True for right click, false for left click</param>
-        public void SendClick(int x, int y, bool rightClick = false)
+        public void SendClick(int x, int y, bool rightClick = false, Action<string> trace = null)
         {
-            if (_hwnd == IntPtr.Zero)
-                return;
-
-            IntPtr lParam = NativeMethods.MakeLParam(x, y);
-
-            if (rightClick)
+            lock (_captureLock)
             {
-                NativeMethods.PostMessage(_hwnd, NativeMethods.WM_RBUTTONDOWN, (IntPtr)0x0002, lParam);
-                NativeMethods.PostMessage(_hwnd, NativeMethods.WM_RBUTTONUP, IntPtr.Zero, lParam);
-            }
-            else
-            {
-                NativeMethods.PostMessage(_hwnd, NativeMethods.WM_LBUTTONDOWN, (IntPtr)0x0001, lParam);
-                NativeMethods.PostMessage(_hwnd, NativeMethods.WM_LBUTTONUP, IntPtr.Zero, lParam);
+                if (_hwnd == IntPtr.Zero)
+                    return;
+
+                // Capture coordinates are physical window pixels. Mouse messages require
+                // client coordinates in the target window's own DPI context.
+                NativeMethods.POINT point;
+                using (DpiScope.PhysicalPixels())
+                {
+                    if (!NativeMethods.GetWindowRect(_hwnd, out var rect)) return;
+                    point = new NativeMethods.POINT { X = rect.Left + x, Y = rect.Top + y };
+                    if (!NativeMethods.PhysicalToLogicalPointForPerMonitorDPI(_hwnd, ref point)) return;
+                }
+                var targetContext = NativeMethods.GetWindowDpiAwarenessContext(_hwnd);
+                if (targetContext == IntPtr.Zero) return;
+                using (new DpiScope(targetContext))
+                {
+                    if (!NativeMethods.ScreenToClient(_hwnd, ref point)) return;
+                    if (trace != null)
+                    {
+                        NativeMethods.GetClientRect(_hwnd, out var targetClient);
+                        trace($"ClickTrace targetDpi={NativeMethods.GetDpiForWindow(_hwnd)} " +
+                            $"awareness={NativeMethods.GetAwarenessFromDpiAwarenessContext(targetContext)} " +
+                            $"targetClient=({targetClient.Width},{targetClient.Height}) " +
+                            $"posted=({point.X},{point.Y}) physicalInput=({x},{y})");
+                    }
+                    IntPtr lParam = NativeMethods.MakeLParam(point.X, point.Y);
+
+                    // Posting mouse messages is also DPI-sensitive. Keep the sender in the
+                    // target context until both messages have been queued.
+                    if (rightClick)
+                    {
+                        NativeMethods.PostMessage(_hwnd, NativeMethods.WM_RBUTTONDOWN, (IntPtr)0x0002, lParam);
+                        NativeMethods.PostMessage(_hwnd, NativeMethods.WM_RBUTTONUP, IntPtr.Zero, lParam);
+                    }
+                    else
+                    {
+                        NativeMethods.PostMessage(_hwnd, NativeMethods.WM_LBUTTONDOWN, (IntPtr)0x0001, lParam);
+                        NativeMethods.PostMessage(_hwnd, NativeMethods.WM_LBUTTONUP, IntPtr.Zero, lParam);
+                    }
+                }
             }
         }
 
         public void Dispose()
         {
-            if (_isDisposed) return;
-            _isDisposed = true;
-
-            // Restore window if we hid it
-            if (IsWindowHidden)
+            lock (_captureLock)
             {
-                RestoreWindow();
-            }
+                if (_isDisposed) return;
+                _isDisposed = true;
 
-            _captureBuffer?.Dispose();
-            _captureBuffer = null;
+                // Restore window if we hid it
+                if (IsWindowHidden)
+                {
+                    RestoreWindow();
+                }
+
+                _captureBuffer?.Dispose();
+                _captureBuffer = null;
+            }
         }
     }
 }
