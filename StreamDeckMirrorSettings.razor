@@ -53,8 +53,12 @@
 
     <div>
         <MudText Typo="Typo.overline" Color="Color.Secondary">Fundo</MudText>
-        <MudColorPicker Value="_background" ValueChanged="SetBackground" Label="Cor das faixas" ShowAlpha="false"
-                        Variant="Variant.Outlined" Style="max-width: 240px" />
+        @* A largura fica num div em volta: no Style do próprio picker ela limitaria também o painel de cor,
+           que tem largura fixa e ficava cortado à direita. *@
+        <div style="max-width: 240px">
+            <MudColorPicker Value="_background" ValueChanged="SetBackground" Label="Cor das faixas" ShowAlpha="false"
+                            Variant="Variant.Outlined" />
+        </div>
     </div>
 </MudStack>
 
