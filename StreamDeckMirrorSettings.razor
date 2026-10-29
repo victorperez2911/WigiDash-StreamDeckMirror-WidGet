@@ -1,0 +1,145 @@
+@using DrawingColor = System.Drawing.Color
+@using System.Linq
+@using MudBlazor
+@using MudBlazor.Utilities
+@using OpenWigi.Sdk
+@inherits WidgetSettingsComponent<StreamDeckMirrorWidgetInstance>
+@implements IDisposable
+
+@* Tela de configurações dentro do OpenWigiDashManager (substitui o UserControl WPF da versão net472). *@
+<MudStack Spacing="4">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="@StateColor" Size="Size.Small" />
+        <MudText Typo="Typo.body1">@StateText</MudText>
+    </MudStack>
+
+    <div>
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Virtual Device</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudSelect T="string" Value="_selectedKey" ValueChanged="SelectDevice" Label="Janela do Stream Deck"
+                       Variant="Variant.Outlined" Disabled="@(_devices.Count == 0)" Style="min-width: 320px">
+                @foreach (var device in _devices)
+                {
+                    <MudSelectItem Value="@device.Key">@device.Text</MudSelectItem>
+                }
+            </MudSelect>
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="RefreshDevices" aria-label="Procurar de novo" />
+        </MudStack>
+        <MudText Typo="Typo.caption" Color="@(_devices.Count == 0 ? Color.Warning : Color.Secondary)">@_status</MudText>
+    </div>
+
+    <div>
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Atualização</MudText>
+        <MudSlider T="int" Value="Instance.RefreshInterval" ValueChanged="SetRefresh" Min="50" Max="1000" Step="50" Color="Color.Primary">
+            A cada @Instance.RefreshInterval ms (@(1000 / Instance.RefreshInterval) quadros por segundo)
+        </MudSlider>
+    </div>
+
+    <div>
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Janela original e toques</MudText>
+        <MudSwitch T="bool" Value="Instance.IsWindowHidden" ValueChanged="v => Instance.SetHideOriginalWindowAsync(v)" Color="Color.Primary">
+            Esconder a janela do Stream Deck no PC
+        </MudSwitch>
+        <MudSwitch T="bool" Value="Instance.ShowFooterBar" ValueChanged="v => Instance.SetShowFooterBarAsync(v)" Color="Color.Primary">
+            Mostrar o rodapé (toque nele mostra/esconde a janela; enche enquanto o dedo segura)
+        </MudSwitch>
+        <MudSwitch T="bool" Value="Instance.DoubleTapLetterboxEnabled" ValueChanged="v => Instance.SetDoubleTapLetterboxAsync(v)" Color="Color.Primary">
+            Double tap nas faixas pretas mostra/esconde a janela
+        </MudSwitch>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            Long-press no conteúdo = clique direito no Stream Deck. O tempo do long-press é o do manager (600 ms).
+        </MudText>
+    </div>
+
+    <div>
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Fundo</MudText>
+        <MudColorPicker Value="_background" ValueChanged="SetBackground" Label="Cor das faixas" ShowAlpha="false"
+                        Variant="Variant.Outlined" Style="max-width: 240px" />
+    </div>
+</MudStack>
+
+@code {
+    private sealed record DeviceOption(string Key, string Text, StreamDeckWindowInfo Window, int Index);
+
+    private List<DeviceOption> _devices = [];
+    private string _selectedKey;
+    private string _status = string.Empty;
+    private MudColor _background;
+
+    private string StateText => Instance.CurrentState switch
+    {
+        WidgetState.Connected => Instance.IsWindowHidden ? "Conectado (janela escondida)" : "Conectado",
+        WidgetState.AppNotRunning => "Stream Deck não está aberto",
+        WidgetState.DeviceNotFound => "Virtual Device não encontrado",
+        WidgetState.CaptureError => "Erro ao capturar a janela",
+        _ => "Escolha um Virtual Device",
+    };
+
+    private Color StateColor => Instance.CurrentState switch
+    {
+        WidgetState.Connected => Color.Success,
+        WidgetState.NotConfigured => Color.Secondary,
+        _ => Color.Warning,
+    };
+
+    protected override void OnInitialized()
+    {
+        var bg = Instance.BackgroundColor;
+        _background = new MudColor(bg.R, bg.G, bg.B, (byte)255);
+        Instance.Changed += Refresh;
+        RefreshDevices();
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private void RefreshDevices()
+    {
+        _devices = [];
+        _selectedKey = null;
+        if (!StreamDeckWindowFinder.IsStreamDeckRunning())
+        {
+            _status = "Stream Deck não detectado. Abra o aplicativo Elgato Stream Deck.";
+            return;
+        }
+
+        var windows = StreamDeckWindowFinder.FindAllStreamDeckWindows();
+        if (windows.Count == 0)
+        {
+            _status = "Nenhum Virtual Device encontrado.";
+            return;
+        }
+
+        var saved = Instance.SavedDevice;
+        foreach (var group in StreamDeckWindowFinder.GroupBySignature(windows))
+        {
+            for (var i = 0; i < group.Value.Count; i++)
+            {
+                var window = group.Value[i];
+                var text = group.Value.Count > 1 ? window.GetDisplayTextWithIndex(i) : window.DisplayText;
+                var option = new DeviceOption($"{group.Key}#{i}", text, window, i);
+                _devices.Add(option);
+                if (saved != null && window.Title == saved.Title && window.Width == saved.Width &&
+                    window.Height == saved.Height && i == saved.Index)
+                    _selectedKey = option.Key;
+            }
+        }
+        _status = $"{_devices.Count} Virtual Device(s) encontrado(s)";
+    }
+
+    private async Task SelectDevice(string key)
+    {
+        _selectedKey = key;
+        if (_devices.FirstOrDefault(d => d.Key == key) is { } device)
+            await Instance.SetDeviceAsync(device.Window, device.Index);
+    }
+
+    private Task SetRefresh(int ms) => Instance.SetRefreshIntervalAsync(ms);
+
+    private async Task SetBackground(MudColor color)
+    {
+        _background = color;
+        await Instance.SetBackgroundColorAsync(DrawingColor.FromArgb(color.R, color.G, color.B));
+    }
+
+    public void Dispose() => Instance.Changed -= Refresh;
+}

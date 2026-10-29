@@ -1,9 +1,10 @@
-name: Release Widget
+name: Release Widget (OpenWigiDash)
 
+# Branch net10: versões 2.x para o OpenWigiDashManager. A main (1.x, net472) tem o próprio workflow.
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags like v1.0.0
+      - 'v2*'
 
 permissions:
   contents: write
@@ -13,59 +14,42 @@ jobs:
     runs-on: windows-latest
 
     env:
-      WIDGET_GUID: "B7E4D1A2-5C8F-4E9B-A3D6-1F2E3B4C5D6E"
-      PROJECT_PATH: "StreamDeckMirrorWidget.csproj"
+      WIDGET_NAME: "StreamDeckMirrorWidget"
       CONFIGURATION: "Release"
 
     steps:
-    - name: Checkout code
+    - name: Checkout widget
       uses: actions/checkout@v4
+      with:
+        path: WigiDash-StreamDeckMirror-WidGet
+
+    # O OpenWigi.Sdk ainda não está no NuGet: vem do repo do manager, clonado ao lado.
+    # Repo privado: precisa do secret OPENWIGI_REPO_TOKEN (PAT com leitura em OpenWigiDashManager).
+    - name: Checkout OpenWigiDashManager (SDK)
+      uses: actions/checkout@v4
+      with:
+        repository: victorperez2911/OpenWigiDashManager
+        token: ${{ secrets.OPENWIGI_REPO_TOKEN }}
+        path: OpenWigiDashManager
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.x' # Use latest SDK to build .NET Framework projects
+        dotnet-version: '10.0.x'
 
-    - name: Setup NuGet
-      uses: nuget/setup-nuget@v2
+    - name: Publish
+      run: dotnet publish WigiDash-StreamDeckMirror-WidGet/StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o dist/${{ env.WIDGET_NAME }}
 
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.PROJECT_PATH }}
-
-    - name: Build
-      run: dotnet build ${{ env.PROJECT_PATH }} -c ${{ env.CONFIGURATION }}
-
-    - name: Prepare Artifact
+    - name: Zip
       shell: pwsh
       run: |
-        $releaseDir = "dist\${{ env.WIDGET_GUID }}"
-        $buildDir = "bin\${{ env.CONFIGURATION }}\net472"
-
-        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-
-        # Copy main widget files
-        Copy-Item "$buildDir\*.dll" $releaseDir -Force
-        Copy-Item "$buildDir\icon.png" $releaseDir -Force -ErrorAction SilentlyContinue
-
-        # If icon is not in build dir, try project root
-        if (-not (Test-Path "$releaseDir\icon.png")) {
-            Copy-Item "icon.png" $releaseDir -Force -ErrorAction SilentlyContinue
-        }
-
-        # List what was included
-        Write-Host "Contents of release directory:"
-        Get-ChildItem $releaseDir | ForEach-Object { Write-Host "  - $($_.Name)" }
-
-    - name: Zip Artifact
-      shell: pwsh
-      run: |
-        $zipName = "WigiDash-StreamDeckMirrorWidget-${{ github.ref_name }}.zip"
-        Compress-Archive -Path "dist\${{ env.WIDGET_GUID }}" -DestinationPath $zipName
+        $zipName = "OpenWigiDash-StreamDeckMirrorWidget-${{ github.ref_name }}.zip"
+        Get-ChildItem "dist\${{ env.WIDGET_NAME }}" | ForEach-Object { Write-Host "  - $($_.Name)" }
+        Compress-Archive -Path "dist\${{ env.WIDGET_NAME }}" -DestinationPath $zipName
         echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
       with:
         files: ${{ env.ZIP_NAME }}
         generate_release_notes: true

@@ -1,5 +1,18 @@
 # Stream Deck Mirror Widget for WigiDash
 
+> **Branch `net10`:** versão 2.x para o [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) (.NET 10).
+> A versão para o manager oficial da G.Skill (net472) continua na branch `main`.
+>
+> - **Build:** clone o OpenWigiDashManager ao lado deste repo (o `OpenWigi.Sdk` ainda não está no NuGet) e rode `.\deploy.ps1 -RestartManager`.
+> - **Instalação:** o plugin vai para `%LOCALAPPDATA%\OpenWigiDash\Widgets\StreamDeckMirrorWidget`.
+> - **Toques:**
+>   - tap no conteúdo = clique;
+>   - long-press = clique direito, com a barra do rodapé enchendo enquanto o dedo segura;
+>   - tap no rodapé = mostra ou esconde a janela original;
+>   - double tap nas faixas pretas = mostra ou esconde a janela original.
+> - **Configurações:** ficam no próprio manager (Widgets e páginas → Configurar).
+> - **Release:** tags `v2*`. Precisam do secret `OPENWIGI_REPO_TOKEN` para clonar o SDK.
+
 [![Release Widget](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
 
 Um widget para [WigiDash](https://wigidash.com/) que espelha dispositivos virtuais do Elgato Stream Deck, permitindo controlar seu Stream Deck diretamente no display do WigiDash.

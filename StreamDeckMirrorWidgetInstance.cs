@@ -2,123 +2,183 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Threading;
-using System.Windows.Controls;
-using WigiDashWidgetFramework;
-using WigiDashWidgetFramework.WidgetUtility;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using OpenWigi.Sdk;
 
 namespace WigiDash.StreamDeckMirrorWidget
 {
     /// <summary>
-    /// Represents a single instance of the Stream Deck Mirror widget.
-    /// Captures and displays Stream Deck Virtual Device content.
+    /// Uma instância do espelho: captura a janela do Virtual Device do Stream Deck e entrega quadros ao
+    /// OpenWigiDashManager; toques viram cliques na janela.
     /// </summary>
-    public class StreamDeckMirrorWidgetInstance : IWidgetInstance, IWidgetInstanceWithRemoval
+    /// <remarks>
+    /// Gestos (vêm prontos do host):
+    /// tap no conteúdo = clique esquerdo; long-press no conteúdo = clique direito, com a barra do rodapé
+    /// enchendo enquanto o dedo segura; tap no rodapé = mostra/esconde a janela original; double tap
+    /// nas faixas pretas = mostra/esconde (se ligado nas configurações).
+    /// </remarks>
+    public sealed class StreamDeckMirrorWidgetInstance : IWidgetInstance
     {
-        #region Fields
+        private const int MaxRetryCount = 3;
 
-        private readonly StreamDeckMirrorWidgetObject _widgetObject;
-        private readonly string _resourcePath;
-
-        private WindowCapture _windowCapture;
+        private readonly IWidgetContext _context;
         private readonly CaptureDiagnostics _diagnostics;
+        private readonly object _bitmapLock = new object();
+        private readonly SemaphoreSlim _settingsLoaded = new SemaphoreSlim(1, 1);
+
+        private WindowCapture _windowCapture = new WindowCapture();
         private DeviceIdentifier _savedDevice;
         private WidgetState _currentState = WidgetState.NotConfigured;
-
-        private Thread _captureThread;
-        private volatile bool _isRunning;
-        private volatile bool _isPaused;
-
         private Bitmap _currentBitmap;
-        private readonly object _bitmapLock = new object();
-
         private AspectRatioInfo _aspectInfo;
+        private CancellationTokenSource _capturing;
+        private bool _loaded;
+        private float _pressProgress;
 
-        private bool _isDisposed;
-
-        // Settings
-        private int _refreshIntervalMs = 100; // 100ms = 10 FPS
-        private bool _hideOriginalWindow = false;
+        // Configurações
+        private int _refreshIntervalMs = 100; // 10 quadros por segundo
+        private bool _hideOriginalWindow;
         private bool _showFooterBar = true;
-        private int _longPressDurationMs = 600;
-        private bool _doubleClickLetterboxEnabled = true;
+        private bool _doubleTapLetterboxEnabled = true;
         private Color _backgroundColor = Color.Black;
 
-        // Retry tracking
-        private int _retryCount = 0;
-        private const int MAX_RETRY_COUNT = 3;
+        private int _retryCount;
         private DateTime _lastRetryTime = DateTime.MinValue;
 
-        // Double-click detection for letterbox toggle
-        private DateTime _lastLetterboxClickTime = DateTime.MinValue;
-        private const int DOUBLE_CLICK_MS = 400;
-
-        #endregion
-
-        #region IWidgetInstance Properties
-
-        public IWidgetObject WidgetObject { get; set; }
-        public Guid Guid { get; set; }
-        public WidgetSize WidgetSize { get; set; }
-        public event WidgetUpdatedEventHandler WidgetUpdated;
-
-        #endregion
-
-        #region Constructor
-
-        public StreamDeckMirrorWidgetInstance(
-            StreamDeckMirrorWidgetObject widgetObject,
-            WidgetSize widgetSize,
-            Guid instanceGuid,
-            string resourcePath)
+        public StreamDeckMirrorWidgetInstance(IWidgetContext context, string resourcePath)
         {
-            _widgetObject = widgetObject;
-            WidgetObject = widgetObject;
-            WidgetSize = widgetSize;
-            Guid = instanceGuid;
-            _resourcePath = resourcePath;
-            _diagnostics = new CaptureDiagnostics(instanceGuid, resourcePath);
+            _context = context;
+            _diagnostics = new CaptureDiagnostics(context.InstanceId, resourcePath);
+        }
 
-            _windowCapture = new WindowCapture();
+        public Type SettingsComponent => typeof(StreamDeckMirrorSettings);
 
-            Initialize();
+        /// <summary>Mudou o estado ou a configuração; a tela de configurações escuta para se atualizar.</summary>
+        public event Action Changed;
+
+        private PixelSize Size => _context.PixelSize;
+
+        #region Ciclo de vida
+
+        public async ValueTask<WidgetFrame> RenderAsync(RenderReason reason, CancellationToken cancellationToken)
+        {
+            await EnsureLoadedAsync(cancellationToken);
+            if (_currentState != WidgetState.Connected || _context.IsAsleep || !CaptureAndCompose())
+                ComposeState();
+
+            lock (_bitmapLock)
+                return Frames.FromBitmap(_currentBitmap);
+        }
+
+        public ValueTask OnWakeAsync(CancellationToken cancellationToken)
+        {
+            StartCapture();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask OnSleepAsync(CancellationToken cancellationToken)
+        {
+            StopCapture();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask OnRemovedAsync(CancellationToken cancellationToken)
+        {
+            // Tirado do layout: devolve a janela do Stream Deck ao normal.
+            _windowCapture?.RestoreWindow();
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            StopCapture();
+            _windowCapture?.Dispose(); // restaura a janela se estiver escondida
+            _windowCapture = null;
+            lock (_bitmapLock)
+            {
+                _currentBitmap?.Dispose();
+                _currentBitmap = null;
+            }
+            return ValueTask.CompletedTask;
+        }
+
+        private async Task EnsureLoadedAsync(CancellationToken cancellationToken)
+        {
+            if (_loaded)
+                return;
+            await _settingsLoaded.WaitAsync(cancellationToken);
+            try
+            {
+                if (_loaded)
+                    return;
+                await LoadSettingsAsync(cancellationToken);
+                if (_savedDevice is { IsValid: true })
+                    TryConnectToDevice();
+                _loaded = true;
+            }
+            finally
+            {
+                _settingsLoaded.Release();
+            }
         }
 
         #endregion
 
-        #region Initialization
+        #region Captura
 
-        private void Initialize()
+        private void StartCapture()
         {
-            try
+            StopCapture();
+            _capturing = CancellationTokenSource.CreateLinkedTokenSource(_context.Stopping);
+            var token = _capturing.Token;
+            _ = Task.Run(() => CaptureLoopAsync(token), token);
+        }
+
+        private void StopCapture()
+        {
+            _capturing?.Cancel();
+            _capturing = null;
+        }
+
+        private async Task CaptureLoopAsync(CancellationToken cancellationToken)
+        {
+            await EnsureLoadedAsync(cancellationToken);
+            while (!cancellationToken.IsCancellationRequested)
             {
-                Log("Initializing Stream Deck Mirror Widget...");
-
-                // Load saved settings
-                LoadSettings();
-
-                // Try to find saved device
-                if (_savedDevice != null && _savedDevice.IsValid)
+                try
                 {
-                    TryConnectToDevice();
+                    UpdateState();
+                    if (_currentState == WidgetState.Connected)
+                    {
+                        if (CaptureAndCompose())
+                            await PresentAsync(cancellationToken);
+                    }
+                    else
+                    {
+                        ComposeState();
+                        await PresentAsync(cancellationToken);
+                        if (ShouldAttemptReconnect())
+                            TryConnectToDevice();
+                    }
                 }
-                else
+                catch (OperationCanceledException)
                 {
-                    _currentState = WidgetState.NotConfigured;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _context.Logger.LogError(ex, "Erro no laço de captura");
                 }
 
-                // Start capture thread
-                StartCaptureThread();
-
-                // Initial render
-                RenderCurrentState();
-
-                Log("Initialization complete.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Failed to initialize: {ex.Message}");
-                _currentState = WidgetState.NotConfigured;
-                RenderCurrentState();
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(_refreshIntervalMs), _context.Host.Time, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
 
@@ -126,586 +186,333 @@ namespace WigiDash.StreamDeckMirrorWidget
         {
             if (!StreamDeckWindowFinder.IsStreamDeckRunning())
             {
-                _currentState = WidgetState.AppNotRunning;
+                SetState(WidgetState.AppNotRunning);
                 return;
             }
 
-            IntPtr hwnd = StreamDeckWindowFinder.FindSavedDevice(_savedDevice);
-
+            var hwnd = StreamDeckWindowFinder.FindSavedDevice(_savedDevice);
             if (hwnd == IntPtr.Zero)
             {
-                _currentState = WidgetState.DeviceNotFound;
+                SetState(WidgetState.DeviceNotFound);
                 return;
             }
 
             _windowCapture.TargetHwnd = hwnd;
-
-            // Apply hide setting if enabled
             if (_hideOriginalWindow)
-            {
                 _windowCapture.HideWindow();
-            }
-
-            _currentState = WidgetState.Connected;
             _retryCount = 0;
-        }
-
-        #endregion
-
-        #region Settings
-
-        private void LoadSettings()
-        {
-            var manager = _widgetObject.WidgetManager;
-            if (manager == null) return;
-
-            // Device identification
-            string deviceTitle = null, deviceClass = null;
-            int deviceWidth = 0, deviceHeight = 0, deviceIndex = 0;
-
-            if (manager.LoadSetting(this, "device_title", out string title))
-                deviceTitle = title;
-            if (manager.LoadSetting(this, "device_width", out string w) && int.TryParse(w, out int width))
-                deviceWidth = width;
-            if (manager.LoadSetting(this, "device_height", out string h) && int.TryParse(h, out int height))
-                deviceHeight = height;
-            if (manager.LoadSetting(this, "device_index", out string idx) && int.TryParse(idx, out int index))
-                deviceIndex = index;
-            if (manager.LoadSetting(this, "device_class", out string cls))
-                deviceClass = cls;
-
-            if (!string.IsNullOrEmpty(deviceTitle) && deviceWidth > 0 && deviceHeight > 0)
-            {
-                _savedDevice = new DeviceIdentifier
-                {
-                    Title = deviceTitle,
-                    Width = deviceWidth,
-                    Height = deviceHeight,
-                    Index = deviceIndex,
-                    ClassName = deviceClass
-                };
-            }
-
-            // Other settings
-            if (manager.LoadSetting(this, "refreshInterval", out string interval) &&
-                int.TryParse(interval, out int ms))
-            {
-                _refreshIntervalMs = Math.Max(50, Math.Min(1000, ms));
-            }
-
-            if (manager.LoadSetting(this, "hideOriginalWindow", out string hide))
-            {
-                _hideOriginalWindow = hide == "true";
-            }
-
-            if (manager.LoadSetting(this, "showFooterBar", out string footer))
-            {
-                _showFooterBar = footer != "false"; // default true
-            }
-
-            if (manager.LoadSetting(this, "longPressDuration", out string lpd) &&
-                int.TryParse(lpd, out int duration))
-            {
-                _longPressDurationMs = Math.Max(400, Math.Min(1000, duration));
-            }
-
-            if (manager.LoadSetting(this, "doubleClickLetterbox", out string dcl))
-            {
-                _doubleClickLetterboxEnabled = dcl != "false"; // default true
-            }
-
-            if (manager.LoadSetting(this, "backgroundColor", out string bgColor))
-            {
-                try
-                {
-                    _backgroundColor = ColorTranslator.FromHtml(bgColor);
-                }
-                catch { }
-            }
-        }
-
-        public void SaveSettings()
-        {
-            var manager = _widgetObject.WidgetManager;
-            if (manager == null) return;
-
-            // Device identification
-            if (_savedDevice != null)
-            {
-                manager.StoreSetting(this, "device_title", _savedDevice.Title ?? "");
-                manager.StoreSetting(this, "device_width", _savedDevice.Width.ToString());
-                manager.StoreSetting(this, "device_height", _savedDevice.Height.ToString());
-                manager.StoreSetting(this, "device_index", _savedDevice.Index.ToString());
-                manager.StoreSetting(this, "device_class", _savedDevice.ClassName ?? "");
-            }
-
-            // Other settings
-            manager.StoreSetting(this, "refreshInterval", _refreshIntervalMs.ToString());
-            manager.StoreSetting(this, "hideOriginalWindow", _hideOriginalWindow ? "true" : "false");
-            manager.StoreSetting(this, "showFooterBar", _showFooterBar ? "true" : "false");
-            manager.StoreSetting(this, "longPressDuration", _longPressDurationMs.ToString());
-            manager.StoreSetting(this, "doubleClickLetterbox", _doubleClickLetterboxEnabled ? "true" : "false");
-            manager.StoreSetting(this, "backgroundColor", ColorTranslator.ToHtml(_backgroundColor));
-        }
-
-        #endregion
-
-        #region Capture Thread
-
-        private void StartCaptureThread()
-        {
-            _isRunning = true;
-            _captureThread = new Thread(CaptureLoop)
-            {
-                IsBackground = true,
-                Name = $"StreamDeckMirror_{Guid}"
-            };
-            _captureThread.Start();
-        }
-
-        private void CaptureLoop()
-        {
-            while (_isRunning)
-            {
-                try
-                {
-                    if (!_isPaused)
-                    {
-                        UpdateState();
-
-                        if (_currentState == WidgetState.Connected)
-                        {
-                            CaptureAndRender();
-                        }
-                        else
-                        {
-                            // Render state screen and try to reconnect periodically
-                            RenderCurrentState();
-
-                            if (ShouldAttemptReconnect())
-                            {
-                                TryConnectToDevice();
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogError($"Capture loop error: {ex.Message}");
-                }
-
-                Thread.Sleep(_refreshIntervalMs);
-            }
+            SetState(WidgetState.Connected);
         }
 
         private void UpdateState()
         {
-            // Check if app is running
             if (!StreamDeckWindowFinder.IsStreamDeckRunning())
             {
                 if (_currentState != WidgetState.AppNotRunning)
                 {
-                    _currentState = WidgetState.AppNotRunning;
                     _windowCapture.TargetHwnd = IntPtr.Zero;
+                    SetState(WidgetState.AppNotRunning);
                 }
                 return;
             }
 
-            // Check if we have a configured device
-            if (_savedDevice == null || !_savedDevice.IsValid)
+            if (_savedDevice is not { IsValid: true })
             {
-                _currentState = WidgetState.NotConfigured;
+                SetState(WidgetState.NotConfigured);
                 return;
             }
 
-            // Check if window is still valid
-            if (!_windowCapture.IsWindowValid())
-            {
-                if (_currentState == WidgetState.Connected)
-                {
-                    _currentState = WidgetState.DeviceNotFound;
-                }
-            }
+            if (!_windowCapture.IsWindowValid() && _currentState == WidgetState.Connected)
+                SetState(WidgetState.DeviceNotFound);
         }
 
         private bool ShouldAttemptReconnect()
         {
             if (_currentState == WidgetState.NotConfigured)
                 return false;
-
-            // Attempt reconnect every 2-3 seconds
             if ((DateTime.Now - _lastRetryTime).TotalSeconds < 2)
                 return false;
-
             _lastRetryTime = DateTime.Now;
             return true;
         }
 
-        private void CaptureAndRender()
+        /// <summary>Captura a janela e monta o quadro do widget. False se a captura falhou.</summary>
+        private bool CaptureAndCompose()
         {
-            // Capture window
-            Bitmap captured = _windowCapture.Capture();
-
+            using var captured = _windowCapture.Capture();
             if (captured == null)
             {
-                _retryCount++;
-                if (_retryCount >= MAX_RETRY_COUNT)
+                if (++_retryCount >= MaxRetryCount)
                 {
-                    _currentState = WidgetState.CaptureError;
-                    RenderCurrentState();
                     _retryCount = 0;
+                    SetState(WidgetState.CaptureError);
+                    ComposeState();
+                    return true;
                 }
-                return;
+                return false;
             }
-
             _retryCount = 0;
 
-            // Get widget size
-            var size = WidgetSize.ToSize();
-
-            // Calculate aspect ratio if needed
+            var size = Size;
+            var contentHeight = _showFooterBar ? AspectRatioHelper.GetFooterY(size.Height) : size.Height;
             if (_aspectInfo == null ||
-                _aspectInfo.SourceWidth != captured.Width ||
-                _aspectInfo.SourceHeight != captured.Height ||
-                _aspectInfo.ContentAreaWidth != size.Width ||
-                _aspectInfo.ContentAreaHeight != (_showFooterBar
-                    ? AspectRatioHelper.GetFooterY(size.Height) : size.Height))
+                _aspectInfo.SourceWidth != captured.Width || _aspectInfo.SourceHeight != captured.Height ||
+                _aspectInfo.ContentAreaWidth != size.Width || _aspectInfo.ContentAreaHeight != contentHeight)
             {
-                _aspectInfo = AspectRatioHelper.Calculate(
-                    captured.Width, captured.Height,
-                    size.Width, size.Height,
-                    _showFooterBar);
+                _aspectInfo = AspectRatioHelper.Calculate(captured.Width, captured.Height, size.Width, size.Height, _showFooterBar);
             }
 
-            // Create output bitmap
             var output = new Bitmap(size.Width, size.Height);
-
             using (var g = Graphics.FromImage(output))
             {
-                // Clear with background color
                 g.Clear(_backgroundColor);
-
-                // Draw captured content with letterbox
                 g.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                g.DrawImage(captured,
-                    _aspectInfo.RenderX, _aspectInfo.RenderY,
-                    _aspectInfo.RenderWidth, _aspectInfo.RenderHeight);
-
-                // Draw footer bar if enabled
+                g.DrawImage(captured, _aspectInfo.RenderX, _aspectInfo.RenderY, _aspectInfo.RenderWidth, _aspectInfo.RenderHeight);
                 if (_showFooterBar)
-                {
-                    FooterBarRenderer.Render(g, size.Width, size.Height,
-                        _windowCapture.IsWindowHidden, _backgroundColor, 0f);
-                }
+                    FooterBarRenderer.Render(g, size.Width, size.Height, _windowCapture.IsWindowHidden, _backgroundColor, _pressProgress);
             }
 
-            _diagnostics.Record(_windowCapture.TargetHwnd, captured, output, _aspectInfo,
-                _windowCapture.IsWindowHidden, Log);
-            captured.Dispose();
-
-            // Update current bitmap
-            lock (_bitmapLock)
-            {
-                _currentBitmap?.Dispose();
-                _currentBitmap = output;
-            }
-
-            RaiseWidgetUpdated();
+            _diagnostics.Record(_windowCapture.TargetHwnd, captured, output, _aspectInfo, _windowCapture.IsWindowHidden,
+                message => _context.Logger.LogInformation("{Message}", message));
+            Replace(output);
+            return true;
         }
 
-        private void RenderCurrentState()
+        private void ComposeState()
         {
-            var size = WidgetSize.ToSize();
+            var size = Size;
+            Replace(StateRenderer.CreateStateBitmap(_currentState, size.Width, size.Height, _showFooterBar, _backgroundColor,
+                _windowCapture?.IsWindowHidden == true, _savedDevice?.Title, MaxRetryCount - _retryCount));
+        }
 
-            var bitmap = StateRenderer.CreateStateBitmap(
-                _currentState,
-                size.Width,
-                size.Height,
-                _showFooterBar,
-                _backgroundColor,
-                _windowCapture.IsWindowHidden,
-                _savedDevice?.Title,
-                MAX_RETRY_COUNT - _retryCount);
-
+        private void Replace(Bitmap bitmap)
+        {
             lock (_bitmapLock)
             {
                 _currentBitmap?.Dispose();
                 _currentBitmap = bitmap;
             }
-
-            RaiseWidgetUpdated();
         }
 
-        private void RaiseWidgetUpdated()
+        private ValueTask PresentAsync(CancellationToken cancellationToken)
         {
-            Bitmap copy;
+            WidgetFrame frame;
             lock (_bitmapLock)
             {
-                if (_currentBitmap == null) return;
-                copy = (Bitmap)_currentBitmap.Clone();
+                if (_currentBitmap == null)
+                    return ValueTask.CompletedTask;
+                frame = Frames.FromBitmap(_currentBitmap);
             }
+            return _context.PresentAsync(frame, cancellationToken);
+        }
 
-            var args = new WidgetUpdatedEventArgs
-            {
-                WidgetBitmap = copy,
-                Offset = new Point(0, 0),
-                WaitMax = 0
-            };
+        /// <summary>Redesenha agora (fora do ritmo da captura), para o toque ter resposta imediata.</summary>
+        private async ValueTask RefreshNowAsync(CancellationToken cancellationToken)
+        {
+            if (_context.IsAsleep)
+                return;
+            if (_currentState != WidgetState.Connected || !CaptureAndCompose())
+                ComposeState();
+            await PresentAsync(cancellationToken);
+        }
 
-            WidgetUpdated?.Invoke(this, args);
+        private void SetState(WidgetState state)
+        {
+            if (_currentState == state)
+                return;
+            _currentState = state;
+            Changed?.Invoke();
         }
 
         #endregion
 
-        #region IWidgetInstance Methods
+        #region Toque
 
-        public void RequestUpdate()
+        public async ValueTask OnTouchAsync(TouchEvent touch, CancellationToken cancellationToken)
         {
-            if (!_isPaused && _currentState == WidgetState.Connected)
+            var size = Size;
+            var inFooter = _showFooterBar && AspectRatioHelper.IsClickInFooter(touch.Y, size.Height, true);
+
+            switch (touch.Kind)
             {
-                CaptureAndRender();
+                case TouchKind.Tap when inFooter:
+                    await ToggleOriginalWindowAsync(cancellationToken);
+                    return;
+
+                case TouchKind.PressProgress when !inFooter && _showFooterBar:
+                    _pressProgress = (float)touch.Progress;
+                    await RefreshNowAsync(cancellationToken);
+                    return;
+
+                case TouchKind.PressEnded when _pressProgress > 0:
+                    _pressProgress = 0;
+                    await RefreshNowAsync(cancellationToken);
+                    return;
+
+                case TouchKind.Tap:
+                case TouchKind.LongPress:
+                {
+                    if (touch.Kind == TouchKind.LongPress)
+                        _pressProgress = 0;
+                    var aspect = _aspectInfo;
+                    if (_currentState != WidgetState.Connected || aspect == null)
+                        return;
+                    var source = AspectRatioHelper.MapClickToSource(touch.X, touch.Y, aspect, _showFooterBar, size.Height);
+                    if (source.HasValue)
+                    {
+                        // Long-press = clique direito no Stream Deck, como na versão anterior.
+                        _windowCapture.SendClick(source.Value.x, source.Value.y, touch.Kind == TouchKind.LongPress,
+                            _diagnostics.Enabled ? message => _context.Logger.LogInformation("{Message}", message) : null);
+                    }
+                    if (touch.Kind == TouchKind.LongPress)
+                        await RefreshNowAsync(cancellationToken);
+                    return;
+                }
+
+                case TouchKind.DoubleTap when !inFooter && _doubleTapLetterboxEnabled:
+                    // Só nas faixas pretas: dentro do conteúdo o double tap já virou dois cliques.
+                    if (_aspectInfo != null &&
+                        AspectRatioHelper.MapClickToSource(touch.X, touch.Y, _aspectInfo, _showFooterBar, size.Height) == null)
+                    {
+                        await ToggleOriginalWindowAsync(cancellationToken);
+                    }
+                    return;
             }
         }
 
-        public void ClickEvent(ClickType clickType, int x, int y)
+        private async ValueTask ToggleOriginalWindowAsync(CancellationToken cancellationToken)
         {
-            var size = WidgetSize.ToSize();
-
-            // Check if click is in footer
-            if (_showFooterBar && AspectRatioHelper.IsClickInFooter(y, size.Height, true))
-            {
-                HandleFooterClick(clickType);
-                return;
-            }
-
-            // Only process further when connected and we have aspect info
-            var aspect = _aspectInfo;
-            if (_currentState != WidgetState.Connected || aspect == null)
-                return;
-
-            // Map click to source coordinates
-            var sourceCoords = AspectRatioHelper.MapClickToSource(
-                x, y, aspect, _showFooterBar, size.Height);
-
-            if (sourceCoords.HasValue)
-            {
-                // Click is inside content area - forward to Stream Deck
-                bool rightClick = clickType == ClickType.Long;
-                if (_diagnostics.Enabled)
-                {
-                    Log($"ClickTrace widget=({size.Width},{size.Height}) raw=({x},{y}) " +
-                        $"source=({sourceCoords.Value.x},{sourceCoords.Value.y}) " +
-                        $"frame=({aspect.SourceWidth},{aspect.SourceHeight}) " +
-                        $"render=({aspect.RenderX},{aspect.RenderY},{aspect.RenderWidth},{aspect.RenderHeight}) type={clickType}");
-                }
-                _windowCapture.SendClick(sourceCoords.Value.x, sourceCoords.Value.y, rightClick,
-                    _diagnostics.Enabled ? (Action<string>)Log : null);
-            }
-            else
-            {
-                // Click is in letterbox area (black bars) - check for double-click to toggle
-                HandleLetterboxClick();
-            }
-        }
-
-        private void HandleLetterboxClick()
-        {
-            // Check if double-click letterbox toggle is enabled
-            if (!_doubleClickLetterboxEnabled)
-                return;
-
-            var now = DateTime.Now;
-            var elapsed = (now - _lastLetterboxClickTime).TotalMilliseconds;
-
-            if (elapsed < DOUBLE_CLICK_MS)
-            {
-                // Double-click detected - toggle visibility
-                _windowCapture.ToggleVisibility();
-                _hideOriginalWindow = _windowCapture.IsWindowHidden;
-                SaveSettings();
-
-                // Force immediate re-render
-                if (_currentState == WidgetState.Connected)
-                {
-                    CaptureAndRender();
-                }
-                else
-                {
-                    RenderCurrentState();
-                }
-
-                // Reset timer to prevent triple-click triggering again
-                _lastLetterboxClickTime = DateTime.MinValue;
-            }
-            else
-            {
-                // First click - record time
-                _lastLetterboxClickTime = now;
-            }
-        }
-
-        private void HandleFooterClick(ClickType clickType)
-        {
-            // Toggle visibility on any click in footer (Single or Long)
-            // This works better with WigiDash device touch which may not
-            // properly detect long presses
             _windowCapture.ToggleVisibility();
             _hideOriginalWindow = _windowCapture.IsWindowHidden;
-            SaveSettings();
-
-            // Force immediate re-render to show updated footer icon
-            if (_currentState == WidgetState.Connected)
-            {
-                CaptureAndRender();
-            }
-            else
-            {
-                RenderCurrentState();
-            }
-        }
-
-        public UserControl GetSettingsControl()
-        {
-            return new StreamDeckMirrorSettingsControl(this);
-        }
-
-        public void EnterSleep()
-        {
-            _isPaused = true;
-        }
-
-        public void ExitSleep()
-        {
-            _isPaused = false;
+            await SaveSettingsAsync(cancellationToken);
+            await RefreshNowAsync(cancellationToken);
+            Changed?.Invoke();
         }
 
         #endregion
 
-        #region IWidgetInstanceWithRemoval
+        #region Configurações
 
-        public void OnRemove()
+        private async Task LoadSettingsAsync(CancellationToken cancellationToken)
         {
-            Dispose();
+            var settings = _context.Settings;
+            var title = await settings.GetAsync("device_title", cancellationToken);
+            var width = ParseInt(await settings.GetAsync("device_width", cancellationToken));
+            var height = ParseInt(await settings.GetAsync("device_height", cancellationToken));
+            if (!string.IsNullOrEmpty(title) && width > 0 && height > 0)
+            {
+                _savedDevice = new DeviceIdentifier
+                {
+                    Title = title,
+                    Width = width,
+                    Height = height,
+                    Index = ParseInt(await settings.GetAsync("device_index", cancellationToken)),
+                    ClassName = await settings.GetAsync("device_class", cancellationToken),
+                };
+            }
+
+            var refresh = ParseInt(await settings.GetAsync("refreshInterval", cancellationToken));
+            if (refresh > 0)
+                _refreshIntervalMs = Math.Clamp(refresh, 50, 1000);
+            _hideOriginalWindow = await settings.GetAsync("hideOriginalWindow", cancellationToken) == "true";
+            _showFooterBar = await settings.GetAsync("showFooterBar", cancellationToken) != "false";
+            _doubleTapLetterboxEnabled = await settings.GetAsync("doubleClickLetterbox", cancellationToken) != "false";
+            if (await settings.GetAsync("backgroundColor", cancellationToken) is { Length: > 0 } color)
+            {
+                try
+                {
+                    _backgroundColor = ColorTranslator.FromHtml(color);
+                }
+                catch (Exception)
+                {
+                    // Cor inválida gravada: fica o preto padrão.
+                }
+            }
         }
+
+        private async Task SaveSettingsAsync(CancellationToken cancellationToken = default)
+        {
+            var settings = _context.Settings;
+            if (_savedDevice != null)
+            {
+                // A janela escolhida é desta máquina: não vai junto ao duplicar o widget.
+                await settings.SetAsync("device_title", _savedDevice.Title ?? "", false, cancellationToken);
+                await settings.SetAsync("device_width", _savedDevice.Width.ToString(), false, cancellationToken);
+                await settings.SetAsync("device_height", _savedDevice.Height.ToString(), false, cancellationToken);
+                await settings.SetAsync("device_index", _savedDevice.Index.ToString(), false, cancellationToken);
+                await settings.SetAsync("device_class", _savedDevice.ClassName ?? "", false, cancellationToken);
+            }
+            await settings.SetAsync("refreshInterval", _refreshIntervalMs.ToString(), true, cancellationToken);
+            await settings.SetAsync("hideOriginalWindow", _hideOriginalWindow ? "true" : "false", true, cancellationToken);
+            await settings.SetAsync("showFooterBar", _showFooterBar ? "true" : "false", true, cancellationToken);
+            await settings.SetAsync("doubleClickLetterbox", _doubleTapLetterboxEnabled ? "true" : "false", true, cancellationToken);
+            await settings.SetAsync("backgroundColor", ColorTranslator.ToHtml(_backgroundColor), true, cancellationToken);
+        }
+
+        private static int ParseInt(string text) => int.TryParse(text, out var value) ? value : 0;
 
         #endregion
 
-        #region Public Methods (for Settings UI)
+        #region Para a tela de configurações
 
-        public DeviceIdentifier GetSavedDevice() => _savedDevice;
+        public DeviceIdentifier SavedDevice => _savedDevice;
+        public WidgetState CurrentState => _currentState;
+        public bool IsWindowHidden => _windowCapture?.IsWindowHidden == true;
+        public int RefreshInterval => _refreshIntervalMs;
+        public bool HideOriginalWindow => _hideOriginalWindow;
+        public bool ShowFooterBar => _showFooterBar;
+        public bool DoubleTapLetterboxEnabled => _doubleTapLetterboxEnabled;
+        public Color BackgroundColor => _backgroundColor;
 
-        public void SetDevice(StreamDeckWindowInfo windowInfo, int index = 0)
+        public async Task SetDeviceAsync(StreamDeckWindowInfo window, int index)
         {
-            _savedDevice = DeviceIdentifier.FromWindowInfo(windowInfo, index);
-            _windowCapture.TargetHwnd = windowInfo.Hwnd;
-
+            _savedDevice = DeviceIdentifier.FromWindowInfo(window, index);
+            _windowCapture.TargetHwnd = window.Hwnd;
             if (_hideOriginalWindow)
-            {
                 _windowCapture.HideWindow();
-            }
-
-            _currentState = WidgetState.Connected;
-            _aspectInfo = null; // Force recalculation
-            SaveSettings();
+            _aspectInfo = null;
+            SetState(WidgetState.Connected);
+            await SaveSettingsAsync();
+            _context.RequestRender();
         }
 
-        public int GetRefreshInterval() => _refreshIntervalMs;
-        public void SetRefreshInterval(int ms)
+        public async Task SetRefreshIntervalAsync(int ms)
         {
-            _refreshIntervalMs = Math.Max(50, Math.Min(1000, ms));
-            SaveSettings();
+            _refreshIntervalMs = Math.Clamp(ms, 50, 1000);
+            await SaveSettingsAsync();
         }
 
-        public bool GetHideOriginalWindow() => _hideOriginalWindow;
-        public void SetHideOriginalWindow(bool hide)
+        public async Task SetHideOriginalWindowAsync(bool hide)
         {
             _hideOriginalWindow = hide;
             if (hide)
                 _windowCapture.HideWindow();
             else
                 _windowCapture.RestoreWindow();
-            SaveSettings();
+            await SaveSettingsAsync();
+            _context.RequestRender();
+            Changed?.Invoke();
         }
 
-        public bool GetShowFooterBar() => _showFooterBar;
-        public void SetShowFooterBar(bool show)
+        public async Task SetShowFooterBarAsync(bool show)
         {
             _showFooterBar = show;
-            _aspectInfo = null; // Force recalculation
-            SaveSettings();
+            _aspectInfo = null;
+            await SaveSettingsAsync();
+            _context.RequestRender();
         }
 
-        public int GetLongPressDuration() => _longPressDurationMs;
-        public void SetLongPressDuration(int ms)
+        public async Task SetDoubleTapLetterboxAsync(bool enabled)
         {
-            _longPressDurationMs = Math.Max(400, Math.Min(1000, ms));
-            SaveSettings();
+            _doubleTapLetterboxEnabled = enabled;
+            await SaveSettingsAsync();
         }
 
-        public bool GetDoubleClickLetterboxEnabled() => _doubleClickLetterboxEnabled;
-        public void SetDoubleClickLetterboxEnabled(bool enabled)
-        {
-            _doubleClickLetterboxEnabled = enabled;
-            SaveSettings();
-        }
-
-        public Color GetBackgroundColor() => _backgroundColor;
-        public void SetBackgroundColor(Color color)
+        public async Task SetBackgroundColorAsync(Color color)
         {
             _backgroundColor = color;
-            SaveSettings();
-        }
-
-        public WidgetState GetCurrentState() => _currentState;
-        public bool IsWindowHidden() => _windowCapture.IsWindowHidden;
-
-        #endregion
-
-        #region Logging
-
-        private void Log(string message)
-        {
-            try
-            {
-                _widgetObject.WidgetManager?.WriteLogMessage(this, LogLevel.INFO,
-                    $"[StreamDeckMirror] {message}");
-            }
-            catch { }
-        }
-
-        private void LogError(string message)
-        {
-            try
-            {
-                _widgetObject.WidgetManager?.WriteLogMessage(this, LogLevel.ERROR,
-                    $"[StreamDeckMirror] {message}");
-            }
-            catch { }
-        }
-
-        #endregion
-
-        #region IDisposable
-
-        public void Dispose()
-        {
-            if (_isDisposed) return;
-            _isDisposed = true;
-
-            // Stop capture thread
-            _isRunning = false;
-            _captureThread?.Join(2000);
-
-            // Dispose window capture (restores window if hidden)
-            _windowCapture?.Dispose();
-            _windowCapture = null;
-
-            // Dispose bitmap
-            lock (_bitmapLock)
-            {
-                _currentBitmap?.Dispose();
-                _currentBitmap = null;
-            }
+            await SaveSettingsAsync();
+            _context.RequestRender();
         }
 
         #endregion

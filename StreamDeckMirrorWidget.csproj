@@ -1,25 +1,43 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
+  <!-- Versão .NET 10 para o OpenWigiDashManager (branch net10). A main continua em net472 para o
+       manager oficial da G.Skill até o Victor decidir descontinuar. -->
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>WigiDash.StreamDeckMirrorWidget</RootNamespace>
-    <AssemblyName>B7E4D1A2-5C8F-4E9B-A3D6-1F2E3B4C5D6E</AssemblyName>
+    <AssemblyName>StreamDeckMirrorWidget</AssemblyName>
     <LangVersion>latest</LangVersion>
-    <UseWPF>true</UseWPF>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Version>2.0.0</Version>
+    <Authors>Victor Perez</Authors>
+    <Product>Stream Deck Mirror</Product>
+    <Description>Espelha o Virtual Device do Elgato Stream Deck no WigiDash (OpenWigiDashManager).</Description>
+  </PropertyGroup>
+
+  <!-- O SDK ainda não está no NuGet: por enquanto vem do repo OpenWigiDashManager clonado ao lado. -->
+  <PropertyGroup>
+    <OpenWigiSdkProject Condition="'$(OpenWigiSdkProject)' == ''">$(MSBuildThisFileDirectory)..\OpenWigiDashManager\src\OpenWigi.Sdk\OpenWigi.Sdk.csproj</OpenWigiSdkProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="victorperez2911.WigiDashWidgetFramework" Version="1.1.0" />
+    <!-- Contrato e UI vêm do host (uma cópia só): o plugin compila contra eles mas não leva junto. -->
+    <ProjectReference Include="$(OpenWigiSdkProject)" Private="false" ExcludeAssets="runtime" />
+    <PackageReference Include="MudBlazor" Version="9.11.0" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.14" />
   </ItemGroup>
 
-  <!-- Resource images will be added manually when created -->
-  <!-- The code has fallback rendering when images are not found -->
+  <ItemGroup>
+    <!-- Ferramenta de diagnóstico separada (net472), não faz parte do plugin. -->
+    <Compile Remove="TouchDiagnostics\**" />
+    <Content Remove="TouchDiagnostics\**" />
+    <None Remove="TouchDiagnostics\**" />
+  </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
+    <None Include="icon.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('icon.png')" />
   </ItemGroup>
 
 </Project>
+
