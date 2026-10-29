@@ -1,6 +1,7 @@
 name: Release Widget (OpenWigiDash)
 
 # Branch net10: versões 2.x para o OpenWigiDashManager. A main (1.x, net472) tem o próprio workflow.
+# O SDK vem do nuget.org (victorperez2911.OpenWigi.Sdk): não precisa de token nem de outro repo.
 on:
   push:
     tags:
@@ -18,19 +19,7 @@ jobs:
       CONFIGURATION: "Release"
 
     steps:
-    - name: Checkout widget
-      uses: actions/checkout@v4
-      with:
-        path: WigiDash-StreamDeckMirror-WidGet
-
-    # O OpenWigi.Sdk ainda não está no NuGet: vem do repo do manager, clonado ao lado.
-    # Repo privado: precisa do secret OPENWIGI_REPO_TOKEN (PAT com leitura em OpenWigiDashManager).
-    - name: Checkout OpenWigiDashManager (SDK)
-      uses: actions/checkout@v4
-      with:
-        repository: victorperez2911/OpenWigiDashManager
-        token: ${{ secrets.OPENWIGI_REPO_TOKEN }}
-        path: OpenWigiDashManager
+    - uses: actions/checkout@v4
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -38,7 +27,7 @@ jobs:
         dotnet-version: '10.0.x'
 
     - name: Publish
-      run: dotnet publish WigiDash-StreamDeckMirror-WidGet/StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o dist/${{ env.WIDGET_NAME }}
+      run: dotnet publish StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o dist/${{ env.WIDGET_NAME }}
 
     - name: Zip
       shell: pwsh
