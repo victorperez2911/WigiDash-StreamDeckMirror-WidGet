@@ -53,8 +53,11 @@ namespace WigiDash.StreamDeckMirrorWidget
                 if (iconPath is not null && File.Exists(iconPath))
                 {
                     using var icon = new Bitmap(iconPath);
-                    var w = Math.Min(icon.Width, pixels.Width - 20);
-                    var h = Math.Min(icon.Height, pixels.Height - 20);
+                    // Encaixa o ícone (quadrado) sem distorcer, com 10 px de margem.
+                    var scale = Math.Min(1.0, Math.Min((pixels.Width - 20.0) / icon.Width, (pixels.Height - 20.0) / icon.Height));
+                    var w = (int)(icon.Width * scale);
+                    var h = (int)(icon.Height * scale);
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                     g.DrawImage(icon, (pixels.Width - w) / 2, (pixels.Height - h) / 2, w, h);
                 }
             }

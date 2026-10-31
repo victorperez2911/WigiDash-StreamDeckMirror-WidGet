@@ -1,7 +1,13 @@
 name: Release Widget (OpenWigiDash)
 
 # Branch net10: versões 2.x para o OpenWigiDashManager. A main (1.x, net472) tem o próprio workflow.
-# O SDK vem do nuget.org (victorperez2911.OpenWigi.Sdk): não precisa de token nem de outro repo.
+# Tag v2* (ex.: v2.0.0-preview.1): publica o pacote de plugin no nuget.org e cria a release no GitHub
+# com o zip da pasta do widget (para instalar à mão).
+#
+# nuget.org com Trusted Publishing (OIDC, sem API key guardada). Antes da primeira publicação:
+# - no nuget.org, criar a política de Trusted Publishing para victorperez2911/WigiDash-StreamDeckMirror-WidGet
+#   e o workflow release.yml;
+# - no repo, a variável NUGET_USER com o nome do perfil no nuget.org.
 on:
   push:
     tags:
@@ -9,9 +15,10 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: windows-latest
 
     env:
@@ -26,19 +33,47 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Publish
-      run: dotnet publish StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o dist/${{ env.WIDGET_NAME }}
-
-    - name: Zip
+    - name: Versão da tag
       shell: pwsh
       run: |
+        $version = '${{ github.ref_name }}' -replace '^v', ''
+        echo "VERSION=$version" >> $env:GITHUB_ENV
+
+    - name: Pack (pacote de plugin)
+      run: dotnet pack StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o nupkgs /p:Version=${{ env.VERSION }}
+
+    - name: Conferir o pacote
+      shell: pwsh
+      run: ./scripts/Test-PluginPackage.ps1 -Configuration ${{ env.CONFIGURATION }}
+
+    - name: Zip da pasta do widget
+      shell: pwsh
+      run: |
+        dotnet publish StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o "dist\${{ env.WIDGET_NAME }}" /p:Version=${{ env.VERSION }}
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         $zipName = "OpenWigiDash-StreamDeckMirrorWidget-${{ github.ref_name }}.zip"
         Get-ChildItem "dist\${{ env.WIDGET_NAME }}" | ForEach-Object { Write-Host "  - $($_.Name)" }
         Compress-Archive -Path "dist\${{ env.WIDGET_NAME }}" -DestinationPath $zipName
         echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
 
+    - name: Login no nuget.org (chave temporária via OIDC)
+      id: nuget
+      uses: NuGet/login@v1
+      with:
+        user: ${{ vars.NUGET_USER }}
+
+    - name: Push no nuget.org
+      shell: pwsh
+      # No runner Windows o curinga não chega expandido ao dotnet: um push por arquivo.
+      run: |
+        Get-ChildItem nupkgs -Filter *.nupkg | ForEach-Object {
+          dotnet nuget push $_.FullName --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         files: ${{ env.ZIP_NAME }}
+        prerelease: ${{ contains(github.ref_name, '-') }}
         generate_release_notes: true
