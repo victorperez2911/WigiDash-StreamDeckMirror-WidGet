@@ -12,8 +12,11 @@ $ErrorActionPreference = 'Stop'
 
 $projectPath = "$PSScriptRoot"
 $name = "StreamDeckMirrorWidget"
+# Mesma pasta que a instalação pelo nuget.org usa (Widgets\<id do pacote>), para não haver duas cópias do widget.
+$packageId = "victorperez2911.OpenWigiDash.StreamDeckMirror"
 $widgetsPath = Join-Path $env:LOCALAPPDATA 'OpenWigiDash\Widgets'
-$targetFolder = Join-Path $widgetsPath $name
+$targetFolder = Join-Path $widgetsPath $packageId
+$legacyFolder = Join-Path $widgetsPath $name
 $staging = Join-Path $projectPath "bin\publish\$Configuration"
 
 Write-Host "=== Stream Deck Mirror (OpenWigiDash) Deploy ===" -ForegroundColor Cyan
@@ -49,17 +52,21 @@ if ($manager) {
     }
 }
 
-# Passo 3: backup e cópia
+# Passo 3: backup e cópia (a pasta antiga, Widgets\StreamDeckMirrorWidget, também sai, com backup)
 Write-Host "[3/4] Copying widget files..." -ForegroundColor Green
-if (Test-Path $targetFolder) {
-    $backupFolder = Join-Path $env:LOCALAPPDATA ("OpenWigiDash\Backups\$name\" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
-    New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null
-    Copy-Item -Path (Join-Path $targetFolder '*') -Destination $backupFolder -Recurse -Force
-    Write-Host "Previous widget backed up to: $backupFolder" -ForegroundColor Cyan
-    Remove-Item $targetFolder -Recurse -Force
+foreach ($folder in $targetFolder, $legacyFolder) {
+    if (Test-Path $folder) {
+        $backupFolder = Join-Path $env:LOCALAPPDATA ("OpenWigiDash\Backups\$name\" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+        New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null
+        Copy-Item -Path (Join-Path $folder '*') -Destination $backupFolder -Recurse -Force
+        Write-Host "Previous widget backed up to: $backupFolder" -ForegroundColor Cyan
+        Remove-Item $folder -Recurse -Force
+    }
 }
 New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
 Copy-Item -Path (Join-Path $staging '*') -Destination $targetFolder -Recurse -Force
+# A pasta tem o nome do pacote, não da DLL: o host precisa do plugin.json para achar a entrada.
+[IO.File]::WriteAllText((Join-Path $targetFolder 'plugin.json'), "{ `"entry`": `"$name.dll`" }")
 Write-Host "Widget deployed to: $targetFolder" -ForegroundColor Cyan
 
 # Passo 4: reabrir o manager

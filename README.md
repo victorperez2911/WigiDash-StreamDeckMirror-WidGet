@@ -4,14 +4,14 @@
 > A versão para o manager oficial da G.Skill (net472) continua na branch `main`.
 >
 > - **Build:** `.\deploy.ps1 -RestartManager`. O SDK vem do nuget.org (`victorperez2911.OpenWigi.Sdk`); para usar o SDK local, com o OpenWigiDashManager clonado ao lado, compile com `-p:UseLocalOpenWigiSdk=true`.
-> - **Instalação:** o plugin vai para `%LOCALAPPDATA%\OpenWigiDash\Widgets\StreamDeckMirrorWidget`.
+> - **Instalação:** pelo manager, a partir do nuget.org (pacote `victorperez2911.OpenWigiDash.StreamDeckMirror`), ou com o `deploy.ps1`. Os dois usam a pasta `%LOCALAPPDATA%\OpenWigiDash\Widgets\victorperez2911.OpenWigiDash.StreamDeckMirror`.
 > - **Toques:**
 >   - tap no conteúdo = clique;
 >   - long-press = clique direito, com a barra do rodapé enchendo enquanto o dedo segura;
 >   - tap no rodapé = mostra ou esconde a janela original;
 >   - double tap nas faixas pretas = mostra ou esconde a janela original.
 > - **Configurações:** ficam no próprio manager (Widgets e páginas → Configurar).
-> - **Release:** tags `v2*`.
+> - **Release:** tag `v2*` (ex.: `v2.0.0-preview.1`) publica no nuget.org e cria a release no GitHub com o zip. Enquanto o SDK for preview, a versão também precisa ser preview. Conferir o pacote: `scripts/Test-PluginPackage.ps1`.
 
 [![Release Widget](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
 

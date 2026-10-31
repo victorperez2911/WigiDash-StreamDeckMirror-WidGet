@@ -1,0 +1,27 @@
+name: CI (OpenWigiDash)
+
+# Compila e confere o pacote de plugin em cada PR e push na net10. Não publica nada.
+on:
+  pull_request:
+    branches: [net10]
+  push:
+    branches: [net10]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Conferir o pacote de plugin
+      shell: pwsh
+      run: ./scripts/Test-PluginPackage.ps1
