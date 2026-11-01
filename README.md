@@ -279,7 +279,7 @@ repositório OpenWigiDashManager clonado ao lado deste.
 
 ## Publicar uma versão
 
-Crie a tag `v<versão>` (ex.: `v2.0.0-preview.2`) no branch `net10`. O workflow `release.yml` publica o pacote no
+Crie a tag `v<versão>` (ex.: `v2.1.0-preview.1`, a primeira publicada no nuget.org) no branch `net10`. O workflow `release.yml` publica o pacote no
 nuget.org por Trusted Publishing e cria a release do GitHub com o zip. Enquanto o SDK for preview, a versão do
 plugin também precisa ser preview.
 
