@@ -8,10 +8,18 @@ name: Release Widget (OpenWigiDash)
 # - no nuget.org, criar a política de Trusted Publishing para victorperez2911/WigiDash-StreamDeckMirror-WidGet
 #   e o workflow release.yml;
 # - no repo, a variável NUGET_USER com o nome do perfil no nuget.org.
+#
+# Também roda à mão (Actions > Release Widget > Run workflow, na main) com a versão sem o "v":
+# publica do commit escolhido e a release cria a tag v<versão> nele.
 on:
   push:
     tags:
       - 'v2*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão SemVer sem o "v" (ex.: 2.1.0-preview.1). Preview enquanto o SDK for preview.'
+        required: true
 
 permissions:
   contents: write
@@ -33,11 +41,19 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Versão da tag
+    - name: Versão
       shell: pwsh
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
-        $version = '${{ github.ref_name }}' -replace '^v', ''
+        if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+          $version = $env:INPUT_VERSION.Trim() -replace '^v', ''
+          if ($version -notmatch '^2\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Versão inválida: $version" }
+        } else {
+          $version = '${{ github.ref_name }}' -replace '^v', ''
+        }
         echo "VERSION=$version" >> $env:GITHUB_ENV
+        echo "TAG=v$version" >> $env:GITHUB_ENV
 
     - name: Pack (pacote de plugin)
       run: dotnet pack StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o nupkgs /p:Version=${{ env.VERSION }}
@@ -51,7 +67,7 @@ jobs:
       run: |
         dotnet publish StreamDeckMirrorWidget.csproj -c ${{ env.CONFIGURATION }} -o "dist\${{ env.WIDGET_NAME }}" /p:Version=${{ env.VERSION }}
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        $zipName = "OpenWigiDash-StreamDeckMirrorWidget-${{ github.ref_name }}.zip"
+        $zipName = "OpenWigiDash-StreamDeckMirrorWidget-${{ env.TAG }}.zip"
         Get-ChildItem "dist\${{ env.WIDGET_NAME }}" | ForEach-Object { Write-Host "  - $($_.Name)" }
         Compress-Archive -Path "dist\${{ env.WIDGET_NAME }}" -DestinationPath $zipName
         echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
@@ -74,6 +90,8 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ env.TAG }}
+        target_commitish: ${{ github.sha }}
         files: ${{ env.ZIP_NAME }}
-        prerelease: ${{ contains(github.ref_name, '-') }}
+        prerelease: ${{ contains(env.VERSION, '-') }}
         generate_release_notes: true
