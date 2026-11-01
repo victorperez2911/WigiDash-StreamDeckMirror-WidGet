@@ -6,8 +6,8 @@ Plugin que espelha um Virtual Device do Elgato Stream Deck no painel WigiDash da
 [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) (.NET 10). Os toques no
 WigiDash viram cliques no Stream Deck.
 
-Esta é a branch `net10` (versões 2.x). A versão para o manager oficial da G.SKILL (net472) continua na
-branch `main`.
+Esta é a versão 2.x. A versão 1.x para o manager oficial da G.SKILL (net472) ficou como legado na branch
+[`legacy-net472`](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/tree/legacy-net472).
 
 ![Widget Preview](docs/screenshots/widget-preview.png)
 
@@ -279,7 +279,7 @@ repositório OpenWigiDashManager clonado ao lado deste.
 
 ## Publicar uma versão
 
-Crie a tag `v<versão>` (ex.: `v2.1.0-preview.1`, a primeira publicada no nuget.org) no branch `net10`. O workflow `release.yml` publica o pacote no
+Crie a tag `v<versão>` (ex.: `v2.1.0-preview.1`, a primeira publicada no nuget.org) na `main`. O workflow `release.yml` publica o pacote no
 nuget.org por Trusted Publishing e cria a release do GitHub com o zip. Enquanto o SDK for preview, a versão do
 plugin também precisa ser preview.
 
