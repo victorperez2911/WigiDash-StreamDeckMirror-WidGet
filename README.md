@@ -1,24 +1,15 @@
-# Stream Deck Mirror Widget for WigiDash
+# Stream Deck Mirror para o WigiDash (OpenWigiDashManager)
 
-> **Branch `net10`:** versão 2.x para o [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) (.NET 10).
-> A versão para o manager oficial da G.Skill (net472) continua na branch `main`.
->
-> - **Build:** `.\deploy.ps1 -RestartManager`. O SDK vem do nuget.org (`victorperez2911.OpenWigi.Sdk`); para usar o SDK local, com o OpenWigiDashManager clonado ao lado, compile com `-p:UseLocalOpenWigiSdk=true`.
-> - **Instalação:** pelo manager, a partir do nuget.org (pacote `victorperez2911.OpenWigiDash.StreamDeckMirror`), ou com o `deploy.ps1`. Os dois usam a pasta `%LOCALAPPDATA%\OpenWigiDash\Widgets\victorperez2911.OpenWigiDash.StreamDeckMirror`.
-> - **Toques:**
->   - tap no conteúdo = clique;
->   - long-press = clique direito, com a barra do rodapé enchendo enquanto o dedo segura;
->   - tap no rodapé = mostra ou esconde a janela original;
->   - double tap nas faixas pretas = mostra ou esconde a janela original.
-> - **Configurações:** ficam no próprio manager (Widgets e páginas → Configurar).
-> - **Release:** tag `v2*` (ex.: `v2.0.0-preview.1`) publica no nuget.org e cria a release no GitHub com o zip. Enquanto o SDK for preview, a versão também precisa ser preview. Conferir o pacote: `scripts/Test-PluginPackage.ps1`.
+[![Release Widget](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
 
-[![Release Widget](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
+Plugin que espelha um Virtual Device do Elgato Stream Deck no painel WigiDash da G.SKILL, no
+[OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) (.NET 10). Os toques no
+WigiDash viram cliques no Stream Deck.
 
-Um widget para [WigiDash](https://wigidash.com/) que espelha dispositivos virtuais do Elgato Stream Deck, permitindo controlar seu Stream Deck diretamente no display do WigiDash.
+Esta é a branch `net10` (versões 2.x). A versão para o manager oficial da G.SKILL (net472) continua na
+branch `main`.
 
 ![Widget Preview](docs/screenshots/widget-preview.png)
-<!-- SCREENSHOT: widget-preview.png - Print do widget funcionando no WigiDash mostrando os botões do Stream Deck -->
 
 ---
 
@@ -26,95 +17,72 @@ Um widget para [WigiDash](https://wigidash.com/) que espelha dispositivos virtua
 
 - [O que é o WigiDash?](#o-que-é-o-wigidash)
 - [Motivação](#motivação)
-- [O que este Widget faz?](#o-que-este-widget-faz)
-- [Funcionalidades](#funcionalidades)
+- [O que o widget faz](#o-que-o-widget-faz)
 - [Requisitos](#requisitos)
 - [Licenciamento Elgato - Virtual Devices](#licenciamento-elgato---virtual-devices)
 - [Instalação](#instalação)
 - [Configuração](#configuração)
 - [Uso](#uso)
-- [Solução de Problemas](#solução-de-problemas)
+- [Solução de problemas](#solução-de-problemas)
+- [Desenvolvimento](#desenvolvimento)
+- [Publicar uma versão](#publicar-uma-versão)
 
 ---
 
 ## O que é o WigiDash?
 
-O **WigiDash** é um dispositivo de hardware com display touchscreen que pode ser montado em gabinetes de PC, mesas ou qualquer superfície. Ele funciona como um painel de controle customizável, exibindo widgets que mostram informações do sistema, controlam aplicativos e muito mais.
+O **WigiDash** é um painel touchscreen USB da G.SKILL (1016x592) que vai no gabinete ou na mesa e mostra
+widgets. O manager oficial foi descontinuado; o [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager)
+é o substituto em .NET 10, com plugins em pacotes do nuget.org, long-press e suporte a vários usuários do Windows.
 
 ![WigiDash Device](docs/screenshots/wigidash-device.png)
-<!-- SCREENSHOT: wigidash-device.png - Foto do dispositivo WigiDash físico (pode ser imagem promocional) -->
-
-O WigiDash suporta widgets desenvolvidos pela comunidade através de um framework .NET, permitindo que desenvolvedores criem suas próprias integrações.
 
 ---
 
 ## Motivação
 
-O **Elgato Stream Deck** é uma ferramenta poderosa para streamers, criadores de conteúdo e usuários avançados. Porém, ter múltiplos dispositivos físicos na mesa pode ser inconveniente e caro.
-
-**O problema:**
-
-- Stream Deck físico ocupa espaço na mesa
-- Preço elevado para ter múltiplos dispositivos
-- Necessidade de olhar para outro dispositivo além do monitor
-
-**A solução:**
-Este widget permite usar o display do WigiDash como um espelho do Stream Deck Virtual, consolidando dois dispositivos em um só local. Você mantém toda a funcionalidade do Stream Deck, mas visualiza e interage através do WigiDash.
+O **Elgato Stream Deck** é uma ferramenta poderosa para streamers, criadores de conteúdo e usuários avançados.
+Porém, ter vários dispositivos físicos na mesa é caro e ocupa espaço. Este widget usa a tela do WigiDash como
+espelho de um Stream Deck Virtual: você mantém tudo o que o Stream Deck faz, mas vê e toca no WigiDash.
 
 ![Motivation Diagram](docs/screenshots/motivation-diagram.svg)
 
 ---
 
-## O que este Widget faz?
+## O que o widget faz
 
-O **Stream Deck Mirror Widget** captura a janela do Stream Deck Virtual Device e a renderiza no display do WigiDash em tempo real. Os toques no WigiDash são convertidos em cliques no Stream Deck, permitindo controle total.
-
-### Fluxo de Funcionamento
+Captura a janela do Virtual Device do Stream Deck e desenha no WigiDash em tempo real. Os toques voltam para a
+janela como cliques.
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
-│  Stream Deck App    │────▶│  Este Widget         │────▶│  WigiDash       │
-│  (Virtual Device)   │     │  (Captura + Mirror)  │     │  (Display)      │
+│  Stream Deck App    │────▶│  Este widget         │────▶│  WigiDash       │
+│  (Virtual Device)   │     │  (captura + espelho) │     │  (tela)         │
 └─────────────────────┘     └──────────────────────┘     └─────────────────┘
          ▲                            │
-         │                            │
          └────────────────────────────┘
-              Cliques são enviados
-              de volta para o app
+              toques viram cliques
 ```
 
----
-
-## Funcionalidades
-
-- **Espelhamento em tempo real** - Captura contínua da janela do Stream Deck Virtual
-- **Taxa de atualização configurável** - De 10 FPS a 20 FPS
-- **Cliques passados para o Stream Deck** - Toque no WigiDash = clique no Stream Deck
-- **Múltiplos dispositivos virtuais** - Suporta seleção entre vários Virtual Devices
-- **Ocultar janela original** - Esconde a janela do Virtual Device no monitor
-- **Toggle rápido de visibilidade** - Duplo-clique nas bordas ou toque no rodapé
-- **Indicador de status** - Mostra estado da conexão e visibilidade da janela
-
-### Interface de Configuração
-
-![Settings Panel](docs/screenshots/settings-panel.png)
-<!-- SCREENSHOT: settings-panel.png - Print da tela de configurações do widget no WigiDash -->
+- Espelhamento em tempo real, de 1 a 20 quadros por segundo.
+- Tap = clique; long-press = clique direito, com o rodapé enchendo enquanto o dedo segura.
+- Vários Virtual Devices: cada instância do widget escolhe o seu.
+- Esconde a janela original no monitor (ela continua existindo, só invisível).
+- Mostra o estado quando não há imagem: Stream Deck fechado, Virtual Device não encontrado, erro de captura.
+- Qualquer tamanho da grade, de 1x1 a 5x4.
 
 ---
 
 ## Requisitos
 
-### Software
-
-- Windows 10/11
-- [Elgato Stream Deck Software](https://www.elgato.com/downloads) (versão 6.0 ou superior)
-- WigiDash Software
-- .NET Framework 4.7.2
-
-### Hardware
-
-- Dispositivo WigiDash
-- Licença válida para Virtual Devices da Elgato (veja seção abaixo)
+- Windows 10 (1607 ou mais novo) ou 11.
+- [Elgato Stream Deck](https://www.elgato.com/downloads) 6.0 ou mais novo, com licença de Virtual Devices
+  (veja abaixo).
+- [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) instalado pelo
+  `OpenWigiDash-Setup.exe` da [release](https://github.com/victorperez2911/OpenWigiDashManager/releases) dele.
+  O instalador já traz o .NET 10 que o manager usa.
+- O aparelho WigiDash é opcional: sem ele, ligue o **WigiDash virtual** em **Ajustes > Aparelho ativo** do
+  manager e use o widget pela prévia, com o mouse no lugar do dedo.
 
 ---
 
@@ -175,189 +143,150 @@ Dia 1 do mês:
 
 ## Instalação
 
-### Download
+O plugin é um pacote do nuget.org, `victorperez2911.OpenWigiDash.StreamDeckMirror` (tipo `OpenWigiDashPlugin`).
+A loja de plugins dentro do manager ([OpenWigiDashManager#47](https://github.com/victorperez2911/OpenWigiDashManager/issues/47))
+e o `owd plugin` ([#46](https://github.com/victorperez2911/OpenWigiDashManager/issues/46)), que vão instalar a
+partir de lá, ainda estão planejados. Por enquanto:
 
-1. Vá para a página de [Releases](https://github.com/yourusername/WigiDash-StreamDeckMirror-WidGet/releases)
-2. Baixe o arquivo `WigiDash-StreamDeckMirrorWidget-vX.X.X.zip` mais recente
+1. Baixe o zip `OpenWigiDash-StreamDeckMirrorWidget-v2.x.zip` da última
+   [release](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/releases).
+2. Feche o manager pela bandeja.
+3. Copie o conteúdo da pasta do zip para
+   `%LOCALAPPDATA%\OpenWigiDash\Widgets\victorperez2911.OpenWigiDash.StreamDeckMirror\`
+   (a mesma pasta que o `deploy.ps1` e a futura loja usam) e abra o manager de novo.
 
-### Instalação Manual
-
-1. Extraia o conteúdo do ZIP
-2. Copie a pasta `B7E4D1A2-5C8F-4E9B-A3D6-1F2E3B4C5D6E` para:
-
-   ```
-   %LOCALAPPDATA%\WigiDash\Widgets\
-   ```
-
-3. Reinicie o WigiDash Software
-
-![Installation Folder](docs/screenshots/installation-folder.png)
-<!-- SCREENSHOT: installation-folder.png - Print da pasta de instalação mostrando a estrutura de arquivos -->
+O ícone do pacote (`icon.png`) é o desenho do widget com o selo do OpenWigiDash no canto, o padrão dos
+plugins oficiais.
 
 ---
 
 ## Configuração
 
-### Passo 1: Criar um Virtual Device
+### Passo 1: criar um Virtual Device
 
-1. Abra o **Elgato Stream Deck** software
-2. Clique no ícone de dispositivos (canto superior direito)
-3. Selecione **"Add Virtual Stream Deck"**
-4. Escolha o layout desejado (ex: 5x3 para Stream Deck padrão)
+1. Abra o software **Elgato Stream Deck**.
+2. Clique no ícone de dispositivos (canto superior direito).
+3. Selecione **"Add Virtual Stream Deck"**.
+4. Escolha o layout (ex.: 5x3, como o Stream Deck padrão).
 
 ![Add Virtual Device](docs/screenshots/add-virtual-device.png)
-<!-- SCREENSHOT: add-virtual-device.png - Print do menu para adicionar Virtual Device no Stream Deck software -->
 
-### Passo 2: Adicionar o Widget ao WigiDash
+### Passo 2: adicionar o widget
 
-1. Abra o **WigiDash** software
-2. Clique em **"Add Widget"**
-3. Encontre **"Stream Deck Mirror"** na lista
-4. Arraste para a posição desejada no layout
+1. No OpenWigiDashManager, na tela **Widgets e páginas**, clique em adicionar widget.
+2. Escolha **Stream Deck Mirror** e o tamanho.
+3. Selecione o widget na grade: as configurações aparecem no painel ao lado.
+4. Em **Virtual Device**, escolha a janela do Stream Deck (o botão de atualizar procura de novo).
 
-![Add Widget](docs/screenshots/add-widget-wigidash.png)
-<!-- SCREENSHOT: add-widget-wigidash.png - Print do processo de adicionar o widget no WigiDash -->
+### Opções
 
-### Passo 3: Selecionar o Virtual Device
-
-1. Clique no widget para abrir as configurações
-2. No dropdown **"Virtual Device"**, selecione o dispositivo desejado
-3. A visualização aparecerá automaticamente
-
-![Select Device](docs/screenshots/select-device.png)
-<!-- SCREENSHOT: select-device.png - Print do dropdown de seleção de dispositivo nas configurações -->
-
-### Opções de Configuração
-
-| Opção | Descrição |
+| Opção | O que faz |
 |-------|-----------|
-| **Virtual Device** | Seleciona qual Stream Deck Virtual será espelhado |
-| **Taxa de atualização** | Velocidade de captura (50ms = 20 FPS, 100ms = 10 FPS) |
-| **Ocultar janela original** | Esconde a janela do Virtual Device no monitor |
-| **Exibir barra de rodapé** | Mostra/oculta a barra de status inferior |
-| **Duplo-clique nas bordas** | Permite toggle de visibilidade com duplo-clique nas áreas pretas |
+| **Virtual Device** | Qual janela do Stream Deck é espelhada |
+| **Atualização** | Intervalo de captura, de 50 ms (20 quadros por segundo) a 1000 ms |
+| **Esconder a janela do Stream Deck no PC** | Deixa a janela original invisível no monitor |
+| **Mostrar o rodapé** | Barra de status embaixo; tocar nela mostra ou esconde a janela original |
+| **Double tap nas faixas pretas** | Mostra ou esconde a janela original |
+| **Cor das faixas** | Cor das faixas que sobram quando a proporção do widget não é a do Stream Deck |
 
 ---
 
 ## Uso
 
-### Interação Básica
-
-- **Toque nos botões** - O toque é enviado para o Stream Deck, ativando a ação configurada
-- **Toque no rodapé** - Alterna a visibilidade da janela original
-- **Duplo-clique nas bordas pretas** - Alterna a visibilidade da janela (se habilitado)
+- **Tap nos botões:** clique no Stream Deck, que dispara a ação configurada.
+- **Long-press:** clique direito. O rodapé enche enquanto o dedo segura (o tempo é o do manager, 600 ms).
+- **Tap no rodapé:** mostra ou esconde a janela original.
+- **Double tap nas faixas pretas:** mostra ou esconde a janela original (se ligado).
 
 ![Usage Example](docs/screenshots/usage-example.png)
-<!-- SCREENSHOT: usage-example.png - Print ou GIF mostrando o widget em uso no WigiDash -->
 
-### Indicadores de Status
-
-O widget mostra diferentes estados:
+Quando não há imagem, o widget mostra o motivo, e o painel de configurações também:
 
 | Estado | Significado |
 |--------|-------------|
-| **Conectado** | Widget funcionando normalmente |
-| **Conectado (janela oculta)** | Funcionando com janela original invisível |
-| **App não está rodando** | Stream Deck software não está aberto |
-| **Dispositivo não encontrado** | Virtual Device selecionado não existe mais |
-| **Não configurado** | Nenhum dispositivo foi selecionado |
-
-> Os estados são exibidos diretamente no widget quando não há conexão ativa.
+| **Conectado** | Funcionando |
+| **Conectado (janela escondida)** | Funcionando, com a janela original invisível |
+| **Stream Deck não está aberto** | O software da Elgato não está rodando |
+| **Virtual Device não encontrado** | O Virtual Device escolhido não existe mais; o widget tenta reconectar |
+| **Erro ao capturar a janela** | A captura falhou; o widget tenta de novo |
+| **Escolha um Virtual Device** | Nenhum dispositivo escolhido ainda |
 
 ---
 
-## Solução de Problemas
+## Solução de problemas
 
-### Widget mostra "App não está rodando"
+### "Stream Deck não está aberto"
 
-- Verifique se o Elgato Stream Deck software está aberto
-- O software deve estar rodando (pode estar minimizado na bandeja)
+- Abra o software Elgato Stream Deck. Ele pode ficar minimizado na bandeja.
 
-### Widget mostra "Dispositivo não encontrado"
+### "Virtual Device não encontrado"
 
-- O Virtual Device pode ter sido removido
-- Vá nas configurações e selecione outro dispositivo
-- Clique em "Atualizar" para recarregar a lista
+- O Virtual Device pode ter sido removido. Escolha outro nas configurações (o botão de atualizar refaz a lista).
 
-### Cliques não funcionam
+### Toques não viram cliques
 
-- Verifique se a janela do Virtual Device não está minimizada
-- Se estiver usando "Ocultar janela original", a janela deve existir (apenas invisível)
-- Reinicie o Stream Deck software
+- Confira se a janela do Virtual Device não está minimizada.
+- Com "Esconder a janela", a janela precisa existir (só fica invisível).
+- Reinicie o software do Stream Deck.
+
+### Captura cortada ou cliques no lugar errado
+
+- Acontece quando o DPI da janela muda (tela cheia exclusiva, monitor duplicado). Veja
+  [docs/dpi-troubleshooting.md](docs/dpi-troubleshooting.md) e os scripts `scripts/Test-WindowCapture.ps1` e
+  `scripts/Test-ClickDpi.ps1`.
 
 ### Virtual Devices não aparecem no Stream Deck
 
-- Verifique sua licença Elgato (veja seção de licenciamento)
-- Conecte o Stream Deck Mobile se for sua forma de licença
-- Reinicie o Stream Deck software após conectar
+- Confira a licença da Elgato (seção de licenciamento) e conecte o Stream Deck Mobile se for a sua forma de licença.
+- Reinicie o software do Stream Deck depois de conectar.
 
-### Performance baixa / Lag
+### Lento
 
-- Aumente o intervalo de atualização nas configurações (ex: 100ms)
-- Feche outros aplicativos que usam muita CPU
-- Virtual Devices menores (ex: Mini 2x3) consomem menos recursos
+- Aumente o intervalo de atualização (ex.: 100 ms).
+- Virtual Devices menores consomem menos.
 
 ---
 
-## Estrutura de Arquivos
+## Desenvolvimento
 
-```
-WigiDash-StreamDeckMirror-WidGet/
-├── .github/
-│   └── workflows/
-│       └── release.yml          # GitHub Actions para releases
-├── docs/
-│   └── screenshots/             # Screenshots para documentação
-│       └── (seus prints aqui)
-├── Properties/
-│   └── AssemblyInfo.cs
-├── StreamDeckMirrorWidget.csproj
-├── StreamDeckMirrorWidgetObject.cs
-├── StreamDeckMirrorWidgetInstance.cs
-├── StreamDeckMirrorSettingsControl.xaml
-├── StreamDeckMirrorSettingsControl.xaml.cs
-├── WindowCapture.cs
-├── DeviceIdentification.cs
-├── StateRenderer.cs
-├── FooterBarRenderer.cs
-├── AspectRatioHelper.cs
-└── README.md
+Precisa do SDK do .NET 10. O contrato dos widgets é o pacote `victorperez2911.OpenWigi.Sdk` (2.0.0-preview.3);
+a referência para autores de plugins é o
+[docs/sdk.md](https://github.com/victorperez2911/OpenWigiDashManager/blob/main/docs/sdk.md) do OpenWigiDashManager.
+
+```powershell
+.\deploy.ps1 -RestartManager                 # build e cópia para a pasta de widgets do usuário
+dotnet pack -c Release                       # gera o pacote de plugin (.nupkg)
+scripts\Test-PluginPackage.ps1               # confere o que foi para dentro do .nupkg
 ```
 
+Não precisa do aparelho para desenvolver: com o WigiDash virtual ligado no manager (Ajustes > Aparelho ativo),
+o `deploy.ps1 -RestartManager` reabre o manager no tray; abra a janela, adicione o widget e use "Destacar
+prévia", onde o mouse vira toque (clicar dá tap, segurar dá long-press).
+
+Para testar contra o SDK local em vez do pacote do nuget.org, compile com `-p:UseLocalOpenWigiSdk=true` e o
+repositório OpenWigiDashManager clonado ao lado deste.
+
+| Arquivo | O que é |
+| --- | --- |
+| `StreamDeckMirrorWidget.cs` | Ficha do widget (manifesto, tamanhos, ícone do assistente) |
+| `StreamDeckMirrorWidgetInstance.cs` | Instância na tela: captura, quadros, toques |
+| `StreamDeckMirrorSettings.razor` | Tela de configurações (MudBlazor) dentro do manager |
+| `WindowCapture.cs`, `DpiScope.cs`, `NativeMethods.cs` | Captura da janela e cliques, com o DPI certo |
+| `DeviceIdentification.cs` | Acha as janelas dos Virtual Devices |
+| `StateRenderer.cs`, `FooterBarRenderer.cs`, `AspectRatioHelper.cs` | Telas de estado, rodapé e encaixe |
+
 ---
 
-## Contribuindo
+## Publicar uma versão
 
-Contribuições são bem-vindas! Sinta-se à vontade para:
-
-1. Fazer fork do repositório
-2. Criar uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
-4. Push para a branch (`git push origin feature/MinhaFeature`)
-5. Abrir um Pull Request
-
----
-
-## Licença
-
-Este projeto é distribuído sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Crie a tag `v<versão>` (ex.: `v2.1.0-preview.1`, a primeira publicada no nuget.org) no branch `net10`. O workflow `release.yml` publica o pacote no
+nuget.org por Trusted Publishing e cria a release do GitHub com o zip. Enquanto o SDK for preview, a versão do
+plugin também precisa ser preview.
 
 ---
 
 ## Créditos
 
-- **WigiDash** - [wigidash.com](https://wigidash.com/)
+- **WigiDash** - G.SKILL
 - **Elgato Stream Deck** - [elgato.com](https://www.elgato.com/stream-deck)
-- Desenvolvido com auxílio do Claude AI
-
----
-
-## Changelog
-
-### v1.0.0
-
-- Release inicial
-- Espelhamento de Virtual Devices
-- Configurações de taxa de atualização
-- Toggle de visibilidade da janela
-- Suporte a múltiplos dispositivos virtuais
+- Desenvolvido com auxílio do Claude
