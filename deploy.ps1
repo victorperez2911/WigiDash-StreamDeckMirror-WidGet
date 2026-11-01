@@ -13,10 +13,12 @@ $ErrorActionPreference = 'Stop'
 $projectPath = "$PSScriptRoot"
 $name = "StreamDeckMirrorWidget"
 # Mesma pasta que a instalação pelo nuget.org usa (Widgets\<id do pacote>), para não haver duas cópias do widget.
-$packageId = "victorperez2911.OpenWigiDash.StreamDeckMirror"
+$packageId = "OpenWigiDash.StreamDeckMirror"
 $widgetsPath = Join-Path $env:LOCALAPPDATA 'OpenWigiDash\Widgets'
 $targetFolder = Join-Path $widgetsPath $packageId
 $legacyFolder = Join-Path $widgetsPath $name
+# Pasta do id antigo do pacote, de antes da Org OpenWigiDash.
+$oldIdFolder = Join-Path $widgetsPath "victorperez2911.OpenWigiDash.StreamDeckMirror"
 $staging = Join-Path $projectPath "bin\publish\$Configuration"
 
 Write-Host "=== Stream Deck Mirror (OpenWigiDash) Deploy ===" -ForegroundColor Cyan
@@ -52,9 +54,9 @@ if ($manager) {
     }
 }
 
-# Passo 3: backup e cópia (a pasta antiga, Widgets\StreamDeckMirrorWidget, também sai, com backup)
+# Passo 3: backup e cópia (as pastas antigas, Widgets\StreamDeckMirrorWidget e a do id antigo, também saem, com backup)
 Write-Host "[3/4] Copying widget files..." -ForegroundColor Green
-foreach ($folder in $targetFolder, $legacyFolder) {
+foreach ($folder in $targetFolder, $legacyFolder, $oldIdFolder) {
     if (Test-Path $folder) {
         $backupFolder = Join-Path $env:LOCALAPPDATA ("OpenWigiDash\Backups\$name\" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
         New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null

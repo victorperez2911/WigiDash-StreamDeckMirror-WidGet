@@ -20,21 +20,21 @@
        O workflow de release troca a versão pela da tag (v2.0.0-preview.1 -> 2.0.0-preview.1). -->
   <PropertyGroup>
     <OpenWigiDashPlugin>true</OpenWigiDashPlugin>
-    <PackageId>victorperez2911.OpenWigiDash.StreamDeckMirror</PackageId>
+    <PackageId>OpenWigiDash.StreamDeckMirror</PackageId>
     <Version>2.0.0-preview.1</Version>
     <Title>Stream Deck Mirror</Title>
     <PackageTags>streamdeck;elgato;wigidash</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <!-- O SDK vem do nuget.org. Para testar mudanças no SDK antes de publicar, compile com
        -p:UseLocalOpenWigiSdk=true e o repo OpenWigiDashManager clonado ao lado deste. -->
   <PropertyGroup>
-    <OpenWigiSdkVersion>2.0.0-preview.3</OpenWigiSdkVersion>
+    <OpenWigiSdkVersion>2.0.0-preview.4</OpenWigiSdkVersion>
     <OpenWigiSdkProject Condition="'$(OpenWigiSdkProject)' == ''">$(MSBuildThisFileDirectory)..\OpenWigiDashManager\src\OpenWigi.Sdk\OpenWigi.Sdk.csproj</OpenWigiSdkProject>
   </PropertyGroup>
 
@@ -43,10 +43,10 @@
     <ProjectReference Include="$(OpenWigiSdkProject)" Private="false" ExcludeAssets="runtime" />
   </ItemGroup>
   <!-- Pelo pacote, os targets do SDK (que montam o pacote de plugin) entram sozinhos; pelo projeto local, não. -->
-  <Import Project="$([System.IO.Path]::GetDirectoryName('$(OpenWigiSdkProject)'))\build\victorperez2911.OpenWigi.Sdk.targets"
+  <Import Project="$([System.IO.Path]::GetDirectoryName('$(OpenWigiSdkProject)'))\build\OpenWigiDash.Sdk.targets"
           Condition="'$(UseLocalOpenWigiSdk)' == 'true'" />
   <ItemGroup Condition="'$(UseLocalOpenWigiSdk)' != 'true'">
-    <PackageReference Include="victorperez2911.OpenWigi.Sdk" Version="$(OpenWigiSdkVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="OpenWigiDash.Sdk" Version="$(OpenWigiSdkVersion)" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

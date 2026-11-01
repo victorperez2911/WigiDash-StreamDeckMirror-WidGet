@@ -25,7 +25,7 @@ namespace WigiDash.StreamDeckMirrorWidget
             Name = "Stream Deck Mirror",
             Version = new Version(2, 0, 0),
             Author = "Victor Perez",
-            Website = "https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet",
+            Website = "https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet",
             Description = "Espelha o Virtual Device do Elgato Stream Deck no WigiDash.",
             // Todos os tamanhos da grade, do 1x1 ao 5x4.
             SupportedSizes = Enumerable.Range(1, WidgetGrid.Rows)

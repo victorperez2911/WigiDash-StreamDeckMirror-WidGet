@@ -1,13 +1,13 @@
 # Stream Deck Mirror para o WigiDash (OpenWigiDashManager)
 
-[![Release Widget](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
+[![Release Widget](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml/badge.svg)](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/actions/workflows/release.yml)
 
 Plugin que espelha um Virtual Device do Elgato Stream Deck no painel WigiDash da G.SKILL, no
-[OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) (.NET 10). Os toques no
+[OpenWigiDashManager](https://github.com/OpenWigiDash/OpenWigiDashManager) (.NET 10). Os toques no
 WigiDash viram cliques no Stream Deck.
 
 Esta é a versão 2.x. A versão 1.x para o manager oficial da G.SKILL (net472) ficou como legado na branch
-[`legacy-net472`](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/tree/legacy-net472).
+[`legacy-net472`](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/tree/legacy-net472).
 
 ![Widget Preview](docs/screenshots/widget-preview.png)
 
@@ -32,7 +32,7 @@ Esta é a versão 2.x. A versão 1.x para o manager oficial da G.SKILL (net472) 
 ## O que é o WigiDash?
 
 O **WigiDash** é um painel touchscreen USB da G.SKILL (1016x592) que vai no gabinete ou na mesa e mostra
-widgets. O manager oficial foi descontinuado; o [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager)
+widgets. O manager oficial foi descontinuado; o [OpenWigiDashManager](https://github.com/OpenWigiDash/OpenWigiDashManager)
 é o substituto em .NET 10, com plugins em pacotes do nuget.org, long-press e suporte a vários usuários do Windows.
 
 ![WigiDash Device](docs/screenshots/wigidash-device.png)
@@ -78,8 +78,8 @@ janela como cliques.
 - Windows 10 (1607 ou mais novo) ou 11.
 - [Elgato Stream Deck](https://www.elgato.com/downloads) 6.0 ou mais novo, com licença de Virtual Devices
   (veja abaixo).
-- [OpenWigiDashManager](https://github.com/victorperez2911/OpenWigiDashManager) instalado pelo
-  `OpenWigiDash-Setup.exe` da [release](https://github.com/victorperez2911/OpenWigiDashManager/releases) dele.
+- [OpenWigiDashManager](https://github.com/OpenWigiDash/OpenWigiDashManager) instalado pelo
+  `OpenWigiDash-Setup.exe` da [release](https://github.com/OpenWigiDash/OpenWigiDashManager/releases) dele.
   O instalador já traz o .NET 10 que o manager usa.
 - O aparelho WigiDash é opcional: sem ele, ligue o **WigiDash virtual** em **Ajustes > Aparelho ativo** do
   manager e use o widget pela prévia, com o mouse no lugar do dedo.
@@ -143,16 +143,16 @@ Dia 1 do mês:
 
 ## Instalação
 
-O plugin é um pacote do nuget.org, `victorperez2911.OpenWigiDash.StreamDeckMirror` (tipo `OpenWigiDashPlugin`).
-A loja de plugins dentro do manager ([OpenWigiDashManager#47](https://github.com/victorperez2911/OpenWigiDashManager/issues/47))
-e o `owd plugin` ([#46](https://github.com/victorperez2911/OpenWigiDashManager/issues/46)), que vão instalar a
+O plugin é um pacote do nuget.org, `OpenWigiDash.StreamDeckMirror` (tipo `OpenWigiDashPlugin`).
+A loja de plugins dentro do manager ([OpenWigiDashManager#47](https://github.com/OpenWigiDash/OpenWigiDashManager/issues/47))
+e o `owd plugin` ([#46](https://github.com/OpenWigiDash/OpenWigiDashManager/issues/46)), que vão instalar a
 partir de lá, ainda estão planejados. Por enquanto:
 
 1. Baixe o zip `OpenWigiDash-StreamDeckMirrorWidget-v2.x.zip` da última
-   [release](https://github.com/victorperez2911/WigiDash-StreamDeckMirror-WidGet/releases).
+   [release](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/releases).
 2. Feche o manager pela bandeja.
 3. Copie o conteúdo da pasta do zip para
-   `%LOCALAPPDATA%\OpenWigiDash\Widgets\victorperez2911.OpenWigiDash.StreamDeckMirror\`
+   `%LOCALAPPDATA%\OpenWigiDash\Widgets\OpenWigiDash.StreamDeckMirror\`
    (a mesma pasta que o `deploy.ps1` e a futura loja usam) e abra o manager de novo.
 
 O ícone do pacote (`icon.png`) é o desenho do widget com o selo do OpenWigiDash no canto, o padrão dos
@@ -249,9 +249,9 @@ Quando não há imagem, o widget mostra o motivo, e o painel de configurações 
 
 ## Desenvolvimento
 
-Precisa do SDK do .NET 10. O contrato dos widgets é o pacote `victorperez2911.OpenWigi.Sdk` (2.0.0-preview.3);
+Precisa do SDK do .NET 10. O contrato dos widgets é o pacote `OpenWigiDash.Sdk` (2.0.0-preview.4);
 a referência para autores de plugins é o
-[docs/sdk.md](https://github.com/victorperez2911/OpenWigiDashManager/blob/main/docs/sdk.md) do OpenWigiDashManager.
+[docs/sdk.md](https://github.com/OpenWigiDash/OpenWigiDashManager/blob/main/docs/sdk.md) do OpenWigiDashManager.
 
 ```powershell
 .\deploy.ps1 -RestartManager                 # build e cópia para a pasta de widgets do usuário
@@ -279,7 +279,7 @@ repositório OpenWigiDashManager clonado ao lado deste.
 
 ## Publicar uma versão
 
-Crie a tag `v<versão>` (ex.: `v2.1.0-preview.1`, a primeira publicada no nuget.org) na `main`. O workflow `release.yml` publica o pacote no
+Crie a tag `v<versão>` (ex.: `v2.1.0-preview.3`, a primeira com o id `OpenWigiDash.StreamDeckMirror`) na `main`. O workflow `release.yml` publica o pacote no
 nuget.org por Trusted Publishing e cria a release do GitHub com o zip. Enquanto o SDK for preview, a versão do
 plugin também precisa ser preview.
 
