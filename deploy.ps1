@@ -1,6 +1,6 @@
-# OpenWigiDash Widget Development - Deploy Script (branch net10)
+# OpenWigiDash Widget Development - Deploy Script
 # Build e deploy do widget Stream Deck Mirror para o OpenWigiDashManager.
-# A versão para o manager oficial da G.Skill (net472) continua na branch main.
+# A versão para o manager oficial da G.Skill (net472) fica na branch legacy-net472.
 
 param(
     [string]$Configuration = "Debug",

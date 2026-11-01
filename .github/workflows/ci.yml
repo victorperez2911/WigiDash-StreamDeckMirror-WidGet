@@ -1,11 +1,11 @@
 name: CI (OpenWigiDash)
 
-# Compila e confere o pacote de plugin em cada PR e push na net10. Não publica nada.
+# Compila e confere o pacote de plugin em cada PR e push na main. Não publica nada.
 on:
   pull_request:
-    branches: [net10]
+    branches: [main]
   push:
-    branches: [net10]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
