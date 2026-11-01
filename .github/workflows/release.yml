@@ -1,7 +1,7 @@
 name: Release Widget (OpenWigiDash)
 
-# Versões 2.x para o OpenWigiDashManager (main). A 1.x (net472, manager da G.Skill) fica na branch legacy-net472.
-# Tag v2* (ex.: v2.1.0-preview.1): publica o pacote de plugin no nuget.org e cria a release no GitHub
+# Versões 2.x e 3.x para o OpenWigiDashManager (main). A 1.x (net472, manager da G.Skill) fica na branch legacy-net472.
+# Tag v2* ou v3* (ex.: v3.0.0-preview.1): publica o pacote de plugin no nuget.org e cria a release no GitHub
 # com o zip da pasta do widget (para instalar à mão).
 #
 # nuget.org com Trusted Publishing (OIDC, sem API key guardada). Antes da primeira publicação:
@@ -15,10 +15,11 @@ on:
   push:
     tags:
       - 'v2*'
+      - 'v3*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versão SemVer sem o "v" (ex.: 2.1.0-preview.1). Preview enquanto o SDK for preview.'
+        description: 'Versão SemVer sem o "v" (ex.: 3.0.0-preview.1). Preview enquanto o SDK for preview.'
         required: true
 
 permissions:
@@ -48,7 +49,7 @@ jobs:
       run: |
         if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
           $version = $env:INPUT_VERSION.Trim() -replace '^v', ''
-          if ($version -notmatch '^2\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Versão inválida: $version" }
+          if ($version -notmatch '^[23]\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Versão inválida: $version" }
         } else {
           $version = '${{ github.ref_name }}' -replace '^v', ''
         }
