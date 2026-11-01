@@ -5,7 +5,7 @@ name: Release Widget (OpenWigiDash)
 # com o zip da pasta do widget (para instalar à mão).
 #
 # nuget.org com Trusted Publishing (OIDC, sem API key guardada). Antes da primeira publicação:
-# - no nuget.org, criar a política de Trusted Publishing para victorperez2911/WigiDash-StreamDeckMirror-WidGet
+# - no nuget.org, criar a política de Trusted Publishing para OpenWigiDash/WigiDash-StreamDeckMirror-WidGet
 #   e o workflow release.yml;
 # - no repo, a variável NUGET_USER com o nome do perfil no nuget.org.
 #
