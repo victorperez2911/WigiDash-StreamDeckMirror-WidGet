@@ -83,6 +83,20 @@ namespace WigiDash.StreamDeckMirrorWidget
             return ValueTask.CompletedTask;
         }
 
+        public ValueTask OnSizeChangedAsync(PixelSize pixelSize, CancellationToken cancellationToken)
+        {
+            // A moldura da página ou a linha mudou: o encaixe da captura e o mapa de toques são do tamanho
+            // antigo. Zera para recalcular no próximo quadro; o host pede RenderAsync(SizeChanged) em seguida.
+            _aspectInfo = null;
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask OnFullscreenChangedAsync(bool fullscreen, CancellationToken cancellationToken)
+        {
+            _aspectInfo = null;
+            return ValueTask.CompletedTask;
+        }
+
         public ValueTask OnRemovedAsync(CancellationToken cancellationToken)
         {
             // Tirado do layout: devolve a janela do Stream Deck ao normal.
@@ -255,11 +269,14 @@ namespace WigiDash.StreamDeckMirrorWidget
 
             var size = Size;
             var contentHeight = _showFooterBar ? AspectRatioHelper.GetFooterY(size.Height) : size.Height;
-            if (_aspectInfo == null ||
-                _aspectInfo.SourceWidth != captured.Width || _aspectInfo.SourceHeight != captured.Height ||
-                _aspectInfo.ContentAreaWidth != size.Width || _aspectInfo.ContentAreaHeight != contentHeight)
+            // Cópia local: OnSizeChangedAsync pode zerar o campo enquanto o laço de captura roda.
+            var aspect = _aspectInfo;
+            if (aspect == null ||
+                aspect.SourceWidth != captured.Width || aspect.SourceHeight != captured.Height ||
+                aspect.ContentAreaWidth != size.Width || aspect.ContentAreaHeight != contentHeight)
             {
-                _aspectInfo = AspectRatioHelper.Calculate(captured.Width, captured.Height, size.Width, size.Height, _showFooterBar);
+                aspect = AspectRatioHelper.Calculate(captured.Width, captured.Height, size.Width, size.Height, _showFooterBar);
+                _aspectInfo = aspect;
             }
 
             var output = new Bitmap(size.Width, size.Height);
@@ -267,12 +284,12 @@ namespace WigiDash.StreamDeckMirrorWidget
             {
                 g.Clear(_backgroundColor);
                 g.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                g.DrawImage(captured, _aspectInfo.RenderX, _aspectInfo.RenderY, _aspectInfo.RenderWidth, _aspectInfo.RenderHeight);
+                g.DrawImage(captured, aspect.RenderX, aspect.RenderY, aspect.RenderWidth, aspect.RenderHeight);
                 if (_showFooterBar)
                     FooterBarRenderer.Render(g, size.Width, size.Height, _windowCapture.IsWindowHidden, _backgroundColor, _pressProgress);
             }
 
-            _diagnostics.Record(_windowCapture.TargetHwnd, captured, output, _aspectInfo, _windowCapture.IsWindowHidden,
+            _diagnostics.Record(_windowCapture.TargetHwnd, captured, output, aspect, _windowCapture.IsWindowHidden,
                 message => _context.Logger.LogInformation("{Message}", message));
             Replace(output);
             return true;

@@ -6,7 +6,7 @@ Plugin que espelha um Virtual Device do Elgato Stream Deck no painel WigiDash da
 [OpenWigiDashManager](https://github.com/OpenWigiDash/OpenWigiDashManager) (.NET 10). Os toques no
 WigiDash viram cliques no Stream Deck.
 
-Esta é a versão 2.x. A versão 1.x para o manager oficial da G.SKILL (net472) ficou como legado na branch
+Esta é a versão 3.x, para o SDK 3.0 (grade 10x8 de meias células e moldura dos tiles desenhada pelo manager). A versão 1.x para o manager oficial da G.SKILL (net472) ficou como legado na branch
 [`legacy-net472`](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/tree/legacy-net472).
 
 ![Widget Preview](docs/screenshots/widget-preview.png)
@@ -148,7 +148,7 @@ A loja de plugins dentro do manager ([OpenWigiDashManager#47](https://github.com
 e o `owd plugin` ([#46](https://github.com/OpenWigiDash/OpenWigiDashManager/issues/46)), que vão instalar a
 partir de lá, ainda estão planejados. Por enquanto:
 
-1. Baixe o zip `OpenWigiDash-StreamDeckMirrorWidget-v2.x.zip` da última
+1. Baixe o zip `OpenWigiDash-StreamDeckMirrorWidget-v3.x.zip` da última
    [release](https://github.com/OpenWigiDash/WigiDash-StreamDeckMirror-WidGet/releases).
 2. Feche o manager pela bandeja.
 3. Copie o conteúdo da pasta do zip para
@@ -249,7 +249,7 @@ Quando não há imagem, o widget mostra o motivo, e o painel de configurações 
 
 ## Desenvolvimento
 
-Precisa do SDK do .NET 10. O contrato dos widgets é o pacote `OpenWigiDash.Sdk` (2.0.0-preview.4);
+Precisa do SDK do .NET 10. O contrato dos widgets é o pacote `OpenWigiDash.Sdk` (3.0.0-preview.1);
 a referência para autores de plugins é o
 [docs/sdk.md](https://github.com/OpenWigiDash/OpenWigiDashManager/blob/main/docs/sdk.md) do OpenWigiDashManager.
 
@@ -279,7 +279,7 @@ repositório OpenWigiDashManager clonado ao lado deste.
 
 ## Publicar uma versão
 
-Crie a tag `v<versão>` (ex.: `v2.1.0-preview.3`, a primeira com o id `OpenWigiDash.StreamDeckMirror`) na `main`. O workflow `release.yml` publica o pacote no
+Crie a tag `v<versão>` (ex.: `v3.0.0-preview.1`), ou rode o `release.yml` pelo "Run workflow" informando a versão, na `main`. O workflow `release.yml` publica o pacote no
 nuget.org por Trusted Publishing e cria a release do GitHub com o zip. Enquanto o SDK for preview, a versão do
 plugin também precisa ser preview.
 
