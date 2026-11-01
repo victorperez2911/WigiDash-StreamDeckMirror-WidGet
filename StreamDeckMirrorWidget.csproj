@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!-- Versão .NET 10 para o OpenWigiDashManager (branch net10). A main continua em net472 para o
-       manager oficial da G.Skill até o Victor decidir descontinuar. -->
+  <!-- Versão .NET 10 para o OpenWigiDashManager. A versão net472, para o manager oficial da G.Skill,
+       fica na branch legacy-net472. -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>WigiDash.StreamDeckMirrorWidget</RootNamespace>

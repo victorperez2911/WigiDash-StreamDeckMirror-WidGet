@@ -1,7 +1,7 @@
 name: Release Widget (OpenWigiDash)
 
-# Branch net10: versões 2.x para o OpenWigiDashManager. A main (1.x, net472) tem o próprio workflow.
-# Tag v2* (ex.: v2.0.0-preview.1): publica o pacote de plugin no nuget.org e cria a release no GitHub
+# Versões 2.x para o OpenWigiDashManager (main). A 1.x (net472, manager da G.Skill) fica na branch legacy-net472.
+# Tag v2* (ex.: v2.1.0-preview.1): publica o pacote de plugin no nuget.org e cria a release no GitHub
 # com o zip da pasta do widget (para instalar à mão).
 #
 # nuget.org com Trusted Publishing (OIDC, sem API key guardada). Antes da primeira publicação:
